@@ -1,10 +1,14 @@
 import { test, expect, type Page } from '@playwright/test'
+import { setupMockAuth } from './mocks/auth-mock'
 
 /**
  * Personal Assistant App Health Tests
  *
  * These tests automatically verify the app is working correctly and
  * provide detailed error reporting for automated debugging.
+ *
+ * IMPORTANT: Uses mock authentication for testing only.
+ * Production always uses real NextAuth/Supabase authentication.
  */
 
 class AppHealthChecker {
@@ -42,7 +46,7 @@ class AppHealthChecker {
     }
 
     // Check voice control panel
-    const voiceControl = await this.page.getByText('Voice Assistant').count()
+    const voiceControl = await this.page.getByText(/voice assistant/i).count()
     if (voiceControl === 0) {
       issues.push('Voice Control component not found')
     }
@@ -59,9 +63,10 @@ class AppHealthChecker {
       issues.push('Habit Tracker component not found')
     }
 
-    // Check Today's Focus section
-    const todaysFocus = await this.page.getByText('Today\'s Focus').count()
-    if (todaysFocus === 0) {
+    // Check Today's Focus section (wait for dashboard data to load)
+    try {
+      await this.page.waitForSelector('text=/today\'s focus/i', { timeout: 5000 })
+    } catch (error) {
       issues.push('Today\'s Focus section not found')
     }
 
@@ -72,8 +77,8 @@ class AppHealthChecker {
     const issues: string[] = []
 
     try {
-      // Check if task input exists
-      const taskInput = this.page.locator('[placeholder*="Add a new task"]')
+      // Check if task input exists using data-testid
+      const taskInput = this.page.locator('[data-testid="task-input"]')
       if (await taskInput.count() === 0) {
         issues.push('Task input field not found')
         return { issues }
@@ -83,12 +88,10 @@ class AppHealthChecker {
       await taskInput.fill('Test task from Playwright')
       await taskInput.press('Enter')
 
-      // Wait a moment for the task to appear
-      await this.page.waitForTimeout(1000)
-
-      // Check if task was added
-      const testTask = await this.page.getByText('Test task from Playwright').count()
-      if (testTask === 0) {
+      // Wait for the task to appear in the list
+      try {
+        await this.page.waitForSelector('text=/Test task from Playwright/i', { timeout: 3000 })
+      } catch (error) {
         issues.push('Task was not added successfully')
       }
 
@@ -117,8 +120,8 @@ class AppHealthChecker {
     const issues: string[] = []
 
     try {
-      // Check if habit input exists
-      const habitInput = this.page.locator('[placeholder*="Add a new habit"]')
+      // Check if habit input exists using data-testid
+      const habitInput = this.page.locator('[data-testid="habit-input"]')
       if (await habitInput.count() === 0) {
         issues.push('Habit input field not found')
         return { issues }
@@ -128,12 +131,10 @@ class AppHealthChecker {
       await habitInput.fill('Test habit from Playwright')
       await habitInput.press('Enter')
 
-      // Wait a moment for the habit to appear
-      await this.page.waitForTimeout(1000)
-
-      // Check if habit was added
-      const testHabit = await this.page.getByText('Test habit from Playwright').count()
-      if (testHabit === 0) {
+      // Wait for the habit to appear in the list
+      try {
+        await this.page.waitForSelector('text=/Test habit from Playwright/i', { timeout: 3000 })
+      } catch (error) {
         issues.push('Habit was not added successfully')
       }
 
@@ -250,6 +251,14 @@ test.describe('Personal Assistant App Health', () => {
   let healthChecker: AppHealthChecker
 
   test.beforeEach(async ({ page }) => {
+    // Setup mock authentication for tests
+    // This ensures tests run consistently without real auth
+    // Production always uses real NextAuth/Supabase
+    await setupMockAuth(page, {
+      authenticated: true,
+      hasGoogleAccess: true
+    })
+
     healthChecker = new AppHealthChecker(page)
   })
 
