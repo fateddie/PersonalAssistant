@@ -25,14 +25,14 @@ export const authOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events',
+          scope: 'openid email profile',
           access_type: 'offline',
-          prompt: 'consent'
+          prompt: 'consent',
+          response_type: 'code'
         }
       },
-      // Disable PKCE for development - works around cookie issues in localhost
-      // TODO: Re-enable PKCE in production after cookie configuration is fixed
-      checks: ['none']
+      // Use state-only check for localhost (PKCE requires HTTPS in production)
+      checks: ['state']
     })
   ] : [],
   callbacks: {
@@ -97,13 +97,19 @@ export const authOptions = {
       }
 
       return session
+    },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url
+      return baseUrl
     }
   },
   pages: {
     signIn: '/auth/signin',
     error: '/auth/error'
   },
-  // Disable debug warnings in all environments
   debug: false
 }
 
