@@ -6,19 +6,41 @@ import { Header } from '@/components/layout/Header'
 import { VoiceControl } from '@/components/features/VoiceControl'
 import { TaskManager } from '@/components/features/TaskManager'
 import { HabitTracker } from '@/components/features/HabitTracker'
+import { DailyCheckin } from '@/components/features/DailyCheckin'
 import GoogleAccountPrompt from '@/components/features/GoogleAccountPrompt'
 import SyncStatus from '@/components/features/SyncStatus'
 import { getGreeting } from '@/lib/utils'
 import { useUser } from '@/hooks/useUser'
 import { useDashboardData } from '@/hooks/useDashboardData'
 import { generateDemoUUID } from '@/lib/uuid'
+import type { Habit } from '@/types'
 
 export default function HomePage() {
   const { data: session } = useSession()
   const { user, isAuthenticated, isLoading: userLoading, hasGoogleAccess } = useUser()
   const { data: dashboardData, loading: loadingData, invalidateCache } = useDashboardData()
   const [isListening, setIsListening] = useState(false)
+  const [habits, setHabits] = useState<Habit[]>([])
   const greeting = getGreeting()
+
+  // Fetch habits for daily check-in
+  useEffect(() => {
+    const fetchHabits = async () => {
+      try {
+        const response = await fetch('/api/habits')
+        if (response.ok) {
+          const data = await response.json()
+          setHabits(data.habits || [])
+        }
+      } catch (error) {
+        console.error('Error fetching habits:', error)
+      }
+    }
+
+    if (isAuthenticated) {
+      fetchHabits()
+    }
+  }, [isAuthenticated])
 
   const handleVoiceCommand = async (command: string) => {
     console.log('🎤 Voice command received:', command)
@@ -165,6 +187,13 @@ export default function HomePage() {
             />
           </div>
         </section>
+
+        {/* Daily Check-in */}
+        {isAuthenticated && habits.length > 0 && (
+          <section style={{ marginBottom: '32px' }}>
+            <DailyCheckin habits={habits} onUpdate={invalidateCache} />
+          </section>
+        )}
 
         {/* Dashboard Grid */}
         <div style={{
