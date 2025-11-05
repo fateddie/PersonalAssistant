@@ -1,123 +1,88 @@
-# Personal Assistant - Project Context
+# CLAUDE CONTEXT – AskSharon.ai
 
 ## Project Overview
-A full-stack Personal Assistant application built with Next.js 14, designed to be scalable, secure, and user-friendly. The app serves as a comprehensive personal productivity platform with modern UI/UX patterns.
+Modular Python assistant (FastAPI + Streamlit) with phase-gated development.
 
-**Core Technologies:**
-- **Frontend:** Next.js 14 with App Router, TypeScript, SSR
-- **Backend:** Supabase (PostgreSQL, Auth, Real-time)
-- **Styling:** Tailwind CSS + DaisyUI components
-- **Deployment:** Vercel (Free Plan)
-- **Payment:** Stripe (future integration)
+## Core Principles (from principles.md - Preserved)
+1. **Agentic workflow** - Model + Tools + Environment
+2. **Tool-first** - Read/search/edit over giant prompts
+3. **Agentic search** - Find files on demand
+4. **Project memory** - Load .cursorrules, principles.md, claude.md
+5. **Plan → Act → Check** - Explicit step breakdown
+6. **Extensibility** - MCP tools, custom utilities
+7. **Beyond code** - Discovery, refactoring, docs, analysis
+8. **Simplicity** - Keep system transparent
+9. **Validation** - Tests and checks over vibes
+10. **Human-in-loop** - Accept/deny edits, inspect diffs
 
-## Development Guidelines
-
-### Code Standards
-- **Always use TypeScript** - No JavaScript files
-- **Component-first architecture** - Break down into small, reusable components
-- **DaisyUI for all UI** - Maintain consistent styling
-- **Document every component** - Include purpose, functionality, and location comments
-- **Vercel-compatible endpoints** - All APIs must work on Vercel deployment
-
-### File Structure Rules
-- **All UI components** → `/components` folder (root level only)
-- **No nested component folders** - Keep flat structure
-- **Consistent naming** - Use PascalCase for components, kebab-case for files
-- **SSR-first approach** - Leverage Next.js App Router features
-
-### Performance & Scalability
-- **Async operations** - Use streaming for long API calls (OpenAI, external APIs)
-- **Client-side rendering** when appropriate for quick data display
-- **Optimize database queries** - Use Supabase efficiently
-- **Error handling & logging** - Comprehensive error management
-- **Rate limiting & security** - Protect all exposed endpoints
-
-### Security Requirements
-- **Secure database access** - Follow Supabase best practices
-- **API key protection** - Never expose secrets
-- **Input validation** - Validate all user inputs
-- **Authentication flows** - Secure user management
-
-## Architecture Patterns
-
-### Component Strategy
-```
-/components
-  ├── ui/           # DaisyUI-based UI primitives
-  ├── forms/        # Form components with validation
-  ├── layout/       # Layout and navigation components
-  └── features/     # Feature-specific components
-```
-
-### API Design
-- **RESTful endpoints** under `/app/api/`
-- **Async/await patterns** for external API calls
-- **Structured error responses** with proper HTTP codes
-- **Response type definitions** for TypeScript
-
-### State Management
-- **Server components first** - Leverage SSR
-- **Client state** with React hooks: `useState`, `useEffect`, `useRef`
-- **No complex state management** - Keep it simple
-
-## Testing Strategy
-- **Component testing** - Test UI components in isolation
-- **API endpoint testing** - Verify all endpoints work correctly
-- **Integration testing** - Test full user flows
-- **Vercel deployment testing** - Always test on actual deployment
+## AskSharon-Specific Rules
+1. Read `/docs/system_design_blueprint.md` for architecture
+2. Work only in active phase under `/planning/`
+3. Modules use `register(app, publish, subscribe)` contract
+4. Event bus communication only (no cross-imports)
+5. Memory via `/assistant/core/context_manager.py`
+6. Follow 26 Rules in `.cursorrules`
 
 ## Development Workflow
-1. **Plan** → Create detailed step-by-step approach
-2. **Read existing code** → Understand current implementation
-3. **Implement incrementally** → Small, testable changes
-4. **Test locally** → Verify functionality at localhost:3000
-5. **Deploy & verify** → Test on Vercel deployment
 
-## Environment Configuration
+### Session Start
+1. Load: principles.md, .cursorrules, claude.md
+2. Summarize: Tech stack, active phase, constraints
+3. Propose: Plan + tools + tests
+4. Get: User approval
+
+### During Task
+1. Plan: Document in DECISIONS.md (WHY)
+2. Act: Small reversible steps
+3. Verify: pytest + black + mypy
+4. Notify: User of progress
+5. Log: Errors with context
+
+### Before Responding
+- [ ] Follows 26 Rules
+- [ ] Error handling included
+- [ ] Notifications added
+- [ ] Tests written
+- [ ] Decision logged
+
+## Tech Stack
+- **Backend:** FastAPI 0.115.2 + uvicorn
+- **Frontend:** Streamlit 1.37.0
+- **Database:** SQLite 3.x + SQLAlchemy
+- **Semantic:** FAISS (128-dim vectors)
+- **AI:** OpenAI API 1.43.0
+- **Testing:** pytest
+- **Formatting:** Black + mypy
+
+## Inherited Standards
+- See `.cursorrules` for 26 Rules
+- See `docs/RULES_DATABASE_PYTHON.md` for patterns
+- See `docs/AUTOMATION_STANDARDS.md` for automation
+- See `docs/ERROR_HANDLING_GUIDE.md` for errors
+- See `docs/NOTIFICATION_SYSTEM.md` for notifications
+
+## Subagents
+See `.claude/subagents.yaml` for specialized agents:
+- module-builder
+- bil-agent
+- phase-validator
+- error-handler-agent
+- documentation-agent
+
+## Key Commands
 ```bash
-# Required environment variables
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-STRIPE_SECRET_KEY= (future)
-STRIPE_PUBLISHABLE_KEY= (future)
+# Setup
+./scripts/setup.sh
+
+# Run
+uvicorn assistant.core.orchestrator:app --reload
+streamlit run assistant/modules/voice/main.py
+
+# Test
+./scripts/test_all.sh
+python scripts/health_check.py
+
+# Format
+black assistant/
+mypy assistant/
 ```
-
-## Common Commands
-```bash
-# Development
-npm run dev              # Start development server
-npm run build           # Build for production
-npm run start           # Start production server
-npm run lint            # Run ESLint
-npm run type-check      # TypeScript checking
-
-# Deployment
-vercel --prod           # Deploy to production
-```
-
-## Quality Gates
-- [ ] TypeScript compilation passes
-- [ ] ESLint passes with no errors
-- [ ] All components have proper documentation
-- [ ] DaisyUI components used consistently
-- [ ] Responsive design implemented
-- [ ] Error handling implemented
-- [ ] Performance optimized
-- [ ] Vercel deployment successful
-
-## Current Status
-- ✅ Claude CLI installed and configured
-- ✅ Project principles established
-- 🔄 Next.js project setup (pending)
-- ⏳ Supabase integration (planned)
-- ⏳ DaisyUI styling setup (planned)
-- ⏳ Component library creation (planned)
-
-## Notes
-- Prioritize user experience and fast loading times
-- Maintain clean, readable, and maintainable code
-- Follow the 23 rules specified in user requirements
-- Always preserve existing functionality when adding features
-- Use consistent styling patterns from existing components
-

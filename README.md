@@ -1,47 +1,113 @@
-# Claude Code Coach Pack
+# AskSharon.ai – Modular Personal Assistant Blueprint
 
-Drop these files in your repo root. Start each session by referencing `claude_coach.md` and loading `principles.md`.
+**Internal package name:** `asksharon_ai_blueprint`
+**Public brand:** AskSharon.ai
 
-## Files
+AskSharon.ai is a modular, voice-enabled personal assistant designed for **phase-gated**, **plug-in style** development. It manages email, tasks, routines, and behaviour — with persistent memory and a behavioural-psychology layer (adaptive goal reinforcement, conversational data elicitation, weekly reviews).
 
-- `principles.md` — rules and rituals
-- `claude_coach.md` — coaching-mode system prompt
-- `session_checklist.md` — checklist
-- `learning_log.md` — log insights
-- `prompt_templates.md` — prompt starters
-- `config/coach_config.yaml` — wrapper config
-- `claude_coach.py` — Python wrapper script
-- `README.md` — this guide
+## 🎯 Core Characteristics
 
-## Ritual
+- ✅ **Automation** - One-command setup, automated testing, self-healing
+- 🔔 **Notifications** - Proactive system events with clear communication
+- 🛡️ **Error Handling** - Robust, structured, user-friendly error management
+- 📝 **Decision Documentation** - Every technical choice logged with rationale
 
-1. New task → open branch → run "Start Session" prompt.
-2. Approve plan → act small → validate.
-3. Capture insights in `learning_log.md`.
-4. PR with diffs + validation evidence.
+## 📁 Folder Structure
 
-## Usage
-
-### Option 1: Manual
-
-Copy content from `claude_coach.md` and `principles.md` into Claude Code, then specify your task.
-
-### Option 2: Python Wrapper
-
-```bash
-python claude_coach.py "your task description"
+```
+asksharon_ai_blueprint/
+├── README.md
+├── requirements.txt
+├── docs/
+│   ├── system_design_blueprint.md
+│   ├── phase1_implementation_plan.md
+│   └── architecture.puml
+├── assistant/
+│   ├── core/                  # orchestrator, scheduler, context manager
+│   ├── modules/               # voice, memory, email, planner, BIL
+│   ├── configs/module_registry.yaml
+│   └── data/                  # schema.sql, seeds.json, memory.db (after init)
+└── planning/
+    ├── progress.yaml
+    ├── phase_1_mvp/
+    ├── phase_2_behaviour/
+    ├── phase_3_planner/
+    ├── phase_4_fitness/
+    └── phase_5_expansion/
 ```
 
-This loads all coaching context and generates a complete prompt to paste into Claude Code.
+## 🚀 Quick Start
 
-## Project Context
+```bash
+# 1. Clone & setup
+git clone https://github.com/fateddie/asksharon_ai_blueprint.git
+cd asksharon_ai_blueprint
+chmod +x scripts/setup.sh
+./scripts/setup.sh
 
-This Coach Pack is configured for a **Personal Assistant** project with:
+# 2. Configure environment
+cp assistant/configs/.env.example .env
+# Edit .env with your API keys
 
-- Next.js 14 + TypeScript + App Router
-- Supabase backend
-- DaisyUI styling
-- Vercel deployment
+# 3. Run
+uvicorn assistant.core.orchestrator:app --reload
+streamlit run assistant/modules/voice/main.py
+```
 
-See `claude.md` for full project specifications and `config/coach_config.yaml` for configuration details.
+## 📋 Phase-Gated Workflow
 
+1. Work only on the active phase in `/planning/<phase>/`
+2. Build per `tasks.md`
+3. Verify per `acceptance_tests.md`
+4. Update `/planning/progress.yaml` before unlocking next phase
+
+## 🧩 Module System
+
+All modules follow the **register()** contract:
+
+```python
+def register(app, publish, subscribe):
+    """Register module with orchestrator"""
+    app.include_router(router, prefix="/module")
+    subscribe("event_name", handle_event)
+    publish("module_loaded", {"name": "module"})
+```
+
+## 📚 Documentation
+
+- `.cursorrules` - 26 development rules (Python edition)
+- `CLAUDE.md` - AI assistant context
+- `principles.md` - Development philosophy
+- `docs/RULES_DATABASE_PYTHON.md` - Comprehensive patterns
+- `docs/AUTOMATION_STANDARDS.md` - Automation guidelines
+- `docs/ERROR_HANDLING_GUIDE.md` - Error management
+- `docs/NOTIFICATION_SYSTEM.md` - Notification patterns
+- `docs/DECISIONS.md` - Technical decision log
+
+## 🔧 Tech Stack
+
+- **Backend:** FastAPI + uvicorn
+- **Frontend:** Streamlit (voice-ready)
+- **Database:** SQLite + FAISS (semantic)
+- **AI:** OpenAI API
+- **Testing:** pytest
+- **Formatting:** Black + mypy
+
+## 📦 Packaging
+
+```bash
+cd ..
+zip -r asksharon_ai_blueprint.zip asksharon_ai_blueprint/
+```
+
+## 🤝 Contributing
+
+Follow the 26 Rules in `.cursorrules` and document decisions in `docs/DECISIONS.md`.
+
+## 📄 License
+
+Private - For personal use and MVP development.
+
+---
+
+**Built with** phase-gated methodology, event-driven architecture, and behavioral intelligence.
