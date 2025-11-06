@@ -103,11 +103,14 @@ Summary:"""
         response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": "You are an email assistant that creates concise, helpful summaries."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are an email assistant that creates concise, helpful summaries.",
+                },
+                {"role": "user", "content": prompt},
             ],
             max_tokens=OPENAI_MAX_TOKENS,
-            temperature=OPENAI_TEMPERATURE
+            temperature=OPENAI_TEMPERATURE,
         )
 
         summary = response.choices[0].message.content.strip()
@@ -158,11 +161,14 @@ Action items:"""
         response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": "You are an email assistant that identifies action items."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are an email assistant that identifies action items.",
+                },
+                {"role": "user", "content": prompt},
             ],
             max_tokens=100,
-            temperature=OPENAI_TEMPERATURE
+            temperature=OPENAI_TEMPERATURE,
         )
 
         result = response.choices[0].message.content.strip()
@@ -173,10 +179,10 @@ Action items:"""
 
         # Split by newlines and clean
         items = []
-        for line in result.split('\n'):
+        for line in result.split("\n"):
             line = line.strip()
             # Remove bullet points, numbers
-            line = line.lstrip('•-*123456789. ')
+            line = line.lstrip("•-*123456789. ")
             if line and len(line) > 3:
                 items.append(line)
 
@@ -261,11 +267,14 @@ Overview:"""
         response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": "You are an email assistant that provides daily email overviews."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are an email assistant that provides daily email overviews.",
+                },
+                {"role": "user", "content": prompt},
             ],
             max_tokens=200,
-            temperature=OPENAI_TEMPERATURE
+            temperature=OPENAI_TEMPERATURE,
         )
 
         overview = response.choices[0].message.content.strip()

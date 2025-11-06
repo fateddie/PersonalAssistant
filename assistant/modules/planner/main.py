@@ -31,9 +31,6 @@ def add_task(task: Task):
 
 @router.get("/list")
 def list_tasks():
-    scored = [
-        (t.title, (t.importance * 0.6) + (t.urgency * 0.3) - (t.effort * 0.1))
-        for t in TASKS
-    ]
+    scored = [(t.title, (t.importance * 0.6) + (t.urgency * 0.3) - (t.effort * 0.1)) for t in TASKS]
     sorted_tasks = sorted(scored, key=lambda x: x[1], reverse=True)
     return {"prioritised_tasks": sorted_tasks}

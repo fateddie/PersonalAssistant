@@ -19,9 +19,7 @@ def register(app, publish, subscribe):
 
 
 def morning_prompt(data):
-    print(
-        f"🌅 Morning check-in ({data.get('time')}): plan your top 3 priorities today."
-    )
+    print(f"🌅 Morning check-in ({data.get('time')}): plan your top 3 priorities today.")
 
 
 def evening_review(data):

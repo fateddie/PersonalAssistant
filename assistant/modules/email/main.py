@@ -29,7 +29,7 @@ from .openai_service import (
     summarize_email,
     extract_action_items,
     generate_daily_email_overview,
-    is_configured as openai_is_configured
+    is_configured as openai_is_configured,
 )
 
 # Load environment variables
@@ -64,7 +64,7 @@ def decode_email_header(header_value: Optional[str]) -> str:
 
     for part, encoding in decoded_parts:
         if isinstance(part, bytes):
-            decoded_str += part.decode(encoding or 'utf-8', errors='ignore')
+            decoded_str += part.decode(encoding or "utf-8", errors="ignore")
         else:
             decoded_str += str(part)
 
@@ -87,9 +87,9 @@ def extract_email_body(msg: email.message.Message) -> tuple[str, str]:
 
             try:
                 if content_type == "text/plain":
-                    body_text = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                    body_text = part.get_payload(decode=True).decode("utf-8", errors="ignore")
                 elif content_type == "text/html":
-                    body_html = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                    body_html = part.get_payload(decode=True).decode("utf-8", errors="ignore")
             except Exception:
                 continue
     else:
@@ -98,7 +98,7 @@ def extract_email_body(msg: email.message.Message) -> tuple[str, str]:
         try:
             payload = msg.get_payload(decode=True)
             if payload:
-                decoded_payload = payload.decode('utf-8', errors='ignore')
+                decoded_payload = payload.decode("utf-8", errors="ignore")
                 if content_type == "text/plain":
                     body_text = decoded_payload
                 elif content_type == "text/html":
@@ -122,10 +122,10 @@ def count_attachments(msg: email.message.Message) -> int:
 
 def parse_email_address(address: str) -> tuple[str, str]:
     """Parse email address into name and email parts"""
-    if '<' in address and '>' in address:
+    if "<" in address and ">" in address:
         # Format: "Name <email@example.com>"
-        name_part = address.split('<')[0].strip().strip('"')
-        email_part = address.split('<')[1].split('>')[0].strip()
+        name_part = address.split("<")[0].strip().strip('"')
+        email_part = address.split("<")[1].split(">")[0].strip()
         return name_part, email_part
     else:
         # Just email address
@@ -136,8 +136,7 @@ def check_email_exists(email_id: str) -> bool:
     """Check if email already exists in database"""
     with engine.connect() as conn:
         result = conn.execute(
-            text("SELECT COUNT(*) FROM emails WHERE email_id = :eid"),
-            {"eid": email_id}
+            text("SELECT COUNT(*) FROM emails WHERE email_id = :eid"), {"eid": email_id}
         )
         count = result.scalar()
         return count > 0
@@ -152,7 +151,8 @@ def store_email(email_data: Dict[str, Any]) -> bool:
 
         with engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO emails (
                         email_id, from_name, from_email, to_email, subject,
                         date_received, body_text, body_html, attachments_count,
@@ -162,7 +162,8 @@ def store_email(email_data: Dict[str, Any]) -> bool:
                         :date_received, :body_text, :body_html, :attachments_count,
                         :priority, :is_read, :folder
                     )
-                """),
+                """
+                ),
                 {
                     "email_id": email_data["email_id"],
                     "from_name": email_data["from_name"],
@@ -175,8 +176,8 @@ def store_email(email_data: Dict[str, Any]) -> bool:
                     "attachments_count": email_data["attachments_count"],
                     "priority": email_data["priority"],
                     "is_read": email_data["is_read"],
-                    "folder": email_data["folder"]
-                }
+                    "folder": email_data["folder"],
+                },
             )
         return True  # Newly stored
     except Exception as e:
@@ -189,16 +190,18 @@ def update_email_summary(email_id: str, summary: str, action_items: List[str]) -
     try:
         with engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE emails
                     SET summary = :summary, action_items = :action_items
                     WHERE email_id = :email_id
-                """),
+                """
+                ),
                 {
                     "email_id": email_id,
                     "summary": summary,
-                    "action_items": json.dumps(action_items)  # Store as JSON
-                }
+                    "action_items": json.dumps(action_items),  # Store as JSON
+                },
             )
         return True
     except Exception as e:
@@ -359,7 +362,7 @@ def fetch_emails(limit: int = GMAIL_FETCH_LIMIT) -> List[Dict[str, Any]]:
                     "body_html": body_html[:10000],
                     "attachments_count": attachments,
                     "is_read": False,
-                    "folder": "INBOX"
+                    "folder": "INBOX",
                 }
 
                 # Calculate priority
@@ -386,7 +389,9 @@ def fetch_emails(limit: int = GMAIL_FETCH_LIMIT) -> List[Dict[str, Any]]:
     return emails
 
 
-def get_stored_emails(limit: int = 100, include_body: bool = False, include_summary: bool = True) -> List[Dict[str, Any]]:
+def get_stored_emails(
+    limit: int = 100, include_body: bool = False, include_summary: bool = True
+) -> List[Dict[str, Any]]:
     """Get emails from database"""
     fields = """
         email_id, from_name, from_email, subject, date_received,
@@ -397,13 +402,15 @@ def get_stored_emails(limit: int = 100, include_body: bool = False, include_summ
 
     with engine.connect() as conn:
         result = conn.execute(
-            text(f"""
+            text(
+                f"""
                 SELECT {fields}
                 FROM emails
                 ORDER BY date_received DESC
                 LIMIT :limit
-            """),
-            {"limit": limit}
+            """
+            ),
+            {"limit": limit},
         )
 
         emails = []
@@ -466,11 +473,7 @@ def summarise_emails(fetch_new: bool = False, limit: int = 10, generate_ai_summa
         priority = email.get("priority", "MEDIUM")
         priority_counts[priority] = priority_counts.get(priority, 0) + 1
 
-    response = {
-        "total": len(emails),
-        "by_priority": priority_counts,
-        "emails": emails
-    }
+    response = {"total": len(emails), "by_priority": priority_counts, "emails": emails}
 
     # Generate AI overview if requested and configured
     if generate_ai_summary and openai_is_configured():
@@ -497,10 +500,7 @@ def fetch_new_emails(limit: int = GMAIL_FETCH_LIMIT):
     """
     emails = fetch_emails(limit=limit)
 
-    return {
-        "fetched": len(emails),
-        "message": f"Successfully fetched {len(emails)} new emails"
-    }
+    return {"fetched": len(emails), "message": f"Successfully fetched {len(emails)} new emails"}
 
 
 @router.post("/generate_summaries")
@@ -518,10 +518,7 @@ def generate_summaries_endpoint(limit: int = 10):
         }
     """
     if not openai_is_configured():
-        return {
-            "summarized": 0,
-            "message": "OpenAI not configured. Set OPENAI_API_KEY in .env"
-        }
+        return {"summarized": 0, "message": "OpenAI not configured. Set OPENAI_API_KEY in .env"}
 
     # Get emails without summaries (include body for summarization)
     emails = get_stored_emails(limit=limit, include_body=True)
@@ -551,5 +548,5 @@ def generate_summaries_endpoint(limit: int = 10):
 
     return {
         "summarized": summarized_count,
-        "message": f"Successfully generated {summarized_count} AI summaries"
+        "message": f"Successfully generated {summarized_count} AI summaries",
     }

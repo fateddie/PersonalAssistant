@@ -61,34 +61,21 @@ def call_backend(intent: Dict[str, Any]) -> Dict[str, Any]:
 
         if action == "add_memory":
             response = requests.post(
-                f"{BACKEND_URL}/memory/add",
-                json={"content": intent["content"]},
-                timeout=5
+                f"{BACKEND_URL}/memory/add", json={"content": intent["content"]}, timeout=5
             )
             response.raise_for_status()
-            return {
-                "success": True,
-                "message": f"✓ Saved to memory: {intent['content'][:50]}..."
-            }
+            return {"success": True, "message": f"✓ Saved to memory: {intent['content'][:50]}..."}
 
         elif action == "add_task":
             # Extract task details (simple for MVP - importance/urgency default to 5)
             response = requests.post(
                 f"{BACKEND_URL}/tasks/add",
-                json={
-                    "title": intent["content"],
-                    "urgency": 5,
-                    "importance": 5,
-                    "effort": 3
-                },
-                timeout=5
+                json={"title": intent["content"], "urgency": 5, "importance": 5, "effort": 3},
+                timeout=5,
             )
             response.raise_for_status()
             data = response.json()
-            return {
-                "success": True,
-                "message": f"✓ Added task: {data['task']['title']}"
-            }
+            return {"success": True, "message": f"✓ Added task: {data['task']['title']}"}
 
         elif action == "list_tasks":
             response = requests.get(f"{BACKEND_URL}/tasks/list", timeout=5)
@@ -97,7 +84,10 @@ def call_backend(intent: Dict[str, Any]) -> Dict[str, Any]:
             tasks = data.get("prioritised_tasks", [])
 
             if not tasks:
-                return {"success": True, "message": "No tasks yet. Add one by saying 'task: do something'"}
+                return {
+                    "success": True,
+                    "message": "No tasks yet. Add one by saying 'task: do something'",
+                }
 
             task_list = "📋 Your Tasks (prioritized):\n\n"
             for i, (title, priority) in enumerate(tasks[:10], 1):
@@ -109,46 +99,27 @@ def call_backend(intent: Dict[str, Any]) -> Dict[str, Any]:
             response = requests.get(f"{BACKEND_URL}/emails/summarise", timeout=5)
             response.raise_for_status()
             data = response.json()
-            return {
-                "success": True,
-                "message": f"📧 {data.get('summary', 'No summary available')}"
-            }
+            return {"success": True, "message": f"📧 {data.get('summary', 'No summary available')}"}
 
         else:
-            return {
-                "success": False,
-                "message": f"Unknown action: {action}"
-            }
+            return {"success": False, "message": f"Unknown action: {action}"}
 
     except requests.exceptions.ConnectionError:
         return {
             "success": False,
-            "message": "❌ Backend not running. Start it with: ./scripts/start.sh"
+            "message": "❌ Backend not running. Start it with: ./scripts/start.sh",
         }
     except requests.exceptions.Timeout:
-        return {
-            "success": False,
-            "message": "❌ Request timed out. Backend may be overloaded."
-        }
+        return {"success": False, "message": "❌ Request timed out. Backend may be overloaded."}
     except requests.exceptions.HTTPError as e:
-        return {
-            "success": False,
-            "message": f"❌ API error: {e}"
-        }
+        return {"success": False, "message": f"❌ API error: {e}"}
     except Exception as e:
-        return {
-            "success": False,
-            "message": f"❌ Unexpected error: {str(e)}"
-        }
+        return {"success": False, "message": f"❌ Unexpected error: {str(e)}"}
 
 
 def streamlit_chat():
     """Main Streamlit chat interface"""
-    st.set_page_config(
-        page_title="AskSharon.ai",
-        page_icon="🤖",
-        layout="wide"
-    )
+    st.set_page_config(page_title="AskSharon.ai", page_icon="🤖", layout="wide")
 
     st.title("🤖 AskSharon.ai")
     st.caption("Your modular personal assistant (MVP)")
@@ -164,7 +135,8 @@ def streamlit_chat():
     # Sidebar with help
     with st.sidebar:
         st.header("💡 How to Use")
-        st.markdown("""
+        st.markdown(
+            """
         **Add Memory:**
         - "Remember to buy coffee"
         - "Note: Meeting at 3pm"
@@ -185,7 +157,8 @@ def streamlit_chat():
 
         **Backend:** http://localhost:8000
         **API Docs:** http://localhost:8000/docs
-        """)
+        """
+        )
 
         if st.button("🔄 Refresh Backend Status"):
             st.rerun()
@@ -194,15 +167,17 @@ def streamlit_chat():
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
         # Add welcome message
-        st.session_state["messages"].append((
-            "Sharon",
-            "👋 Hi! I'm Sharon, your personal assistant. I can help you with:\n\n"
-            "• Saving memories\n"
-            "• Managing tasks\n"
-            "• Checking emails\n"
-            "• And more!\n\n"
-            "What would you like to do?"
-        ))
+        st.session_state["messages"].append(
+            (
+                "Sharon",
+                "👋 Hi! I'm Sharon, your personal assistant. I can help you with:\n\n"
+                "• Saving memories\n"
+                "• Managing tasks\n"
+                "• Checking emails\n"
+                "• And more!\n\n"
+                "What would you like to do?",
+            )
+        )
 
     # Chat input
     with st.form(key="chat_form", clear_on_submit=True):
@@ -211,7 +186,7 @@ def streamlit_chat():
             user_input = st.text_input(
                 "Type your message:",
                 placeholder="e.g., 'Remember to buy milk' or 'Show my tasks'",
-                label_visibility="collapsed"
+                label_visibility="collapsed",
             )
         with col2:
             submit_button = st.form_submit_button("Send", use_container_width=True)
@@ -230,11 +205,13 @@ def streamlit_chat():
             # Add Sharon's response
             st.session_state["messages"].append(("Sharon", result["message"]))
         else:
-            st.session_state["messages"].append((
-                "Sharon",
-                "❌ I can't connect to the backend right now. Please start it with:\n"
-                "```bash\n./scripts/start.sh\n```"
-            ))
+            st.session_state["messages"].append(
+                (
+                    "Sharon",
+                    "❌ I can't connect to the backend right now. Please start it with:\n"
+                    "```bash\n./scripts/start.sh\n```",
+                )
+            )
 
         st.rerun()
 
