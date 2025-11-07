@@ -160,12 +160,31 @@ def start_oauth_flow():
 
 
 @router.get("/oauth/callback")
-def oauth_callback(code: str = Query(...), state: str = Query(None)):
+def oauth_callback(
+    code: str = Query(None),
+    state: str = Query(None),
+    error: str = Query(None)
+):
     """
     OAuth2 callback endpoint.
 
     Google redirects here after user grants permission.
     """
+    # Check if user denied access
+    if error:
+        return {
+            "status": "error",
+            "error": error,
+            "message": f"Authentication failed: {error}. User may have denied access or there was a configuration error."
+        }
+
+    # Check if code is missing
+    if not code:
+        return {
+            "status": "error",
+            "message": "No authorization code received from Google. Please try again.",
+            "help": "Visit /calendar/auth to start the authentication process"
+        }
     try:
         from google_auth_oauthlib.flow import Flow
 
