@@ -1,0 +1,24 @@
+# Optional Dependencies for Cost Optimization
+# ==========================================
+# Install these for local AI processing (66-75% cost reduction)
+#
+# Installation:
+#   pip install -r requirements-optional.txt
+#
+# Benefits:
+#   - HuggingFace: Local email summarization ($0 vs ~$0.02/email)
+#   - Savings: $10-30/month for 500-1000 emails
+#   - Privacy: Emails never leave your machine
+#
+# System Requirements:
+#   - ~2GB disk space (for models)
+#   - 4GB+ RAM recommended
+#   - Works on CPU (GPU optional for speed)
+
+# HuggingFace Transformers (Email Summarization)
+transformers>=4.30.0
+torch>=2.0.0
+sentencepiece>=0.1.99
+
+# Optional: Accelerate for faster inference
+# accelerate>=0.20.0

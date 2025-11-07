@@ -7,10 +7,13 @@ modules:
     description: "SQLite + FAISS conversation memory"
   - name: email
     enabled: true
-    description: "Email summarisation (stub in P1)"
+    description: "Email summarisation and event detection"
   - name: planner
     enabled: true
     description: "Task scoring and daily priorities"
   - name: behavioural_intelligence
     enabled: true
     description: "Adaptive prompts and habit scaffolding"
+  - name: calendar
+    enabled: true
+    description: "Google Calendar integration (Phase 3)"

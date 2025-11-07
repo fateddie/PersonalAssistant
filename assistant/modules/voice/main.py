@@ -70,6 +70,14 @@ def parse_intent(user_input: str) -> Dict[str, Any]:
     if any(word in input_lower for word in ["email", "inbox", "mail"]):
         return {"action": "email_summary"}
 
+    # Detect events
+    if any(word in input_lower for word in ["detect events", "find events", "scan for events"]):
+        return {"action": "detect_events"}
+
+    # Show events
+    if any(word in input_lower for word in ["show events", "my events", "upcoming events", "pending events"]):
+        return {"action": "show_events"}
+
     # Default: add as memory
     return {"action": "add_memory", "content": user_input}
 
@@ -120,6 +128,40 @@ def call_backend(intent: Dict[str, Any]) -> Dict[str, Any]:
             response.raise_for_status()
             data = response.json()
             return {"success": True, "message": f"📧 {data.get('summary', 'No summary available')}"}
+
+        elif action == "detect_events":
+            response = requests.get(f"{BACKEND_URL}/emails/detect-events?limit=50", timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            detected = data.get("detected", 0)
+            if detected == 0:
+                return {"success": True, "message": "No events detected in recent emails"}
+            return {"success": True, "message": f"📅 Detected {detected} events! Use 'show events' to view them."}
+
+        elif action == "show_events":
+            response = requests.get(f"{BACKEND_URL}/emails/events?status=pending", timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            events = data.get("events", [])
+
+            if not events:
+                return {"success": True, "message": "No pending events. Use 'detect events' to scan your emails."}
+
+            message = "📅 Detected Events (Pending Approval):\n\n"
+            for event in events:
+                event_type_emoji = {"meeting": "🤝", "webinar": "🎓", "deadline": "⏰", "appointment": "📍"}.get(event['event_type'], "📅")
+                message += f"{event_type_emoji} **{event['title']}**\n"
+                if event['date_time']:
+                    message += f"   📆 {event['date_time']}\n"
+                if event['location']:
+                    message += f"   📍 {event['location']}\n"
+                if event['url']:
+                    message += f"   🔗 {event['url']}\n"
+                message += f"   Confidence: {event['confidence']}\n"
+                message += f"   _Event ID: {event['id']}_\n\n"
+
+            message += "\n💡 To approve: Use calendar integration (coming soon)"
+            return {"success": True, "message": message}
 
         elif action == "set_goal":
             # Simple goal parsing: "set goal gym 4 times per week"
@@ -288,6 +330,11 @@ def streamlit_chat():
         - "Check my email"
         - "Email summary"
 
+        **📅 Event Detection (NEW!):**
+        - "Detect events" / "Scan for events"
+        - "Show events" / "My events"
+        - Auto-detects: meetings, webinars, deadlines
+
         ---
 
         **Backend:** http://localhost:8000
@@ -306,16 +353,18 @@ def streamlit_chat():
             (
                 "Sharon",
                 "👋 Hi! I'm Sharon, your personal assistant. I can help you with:\n\n"
-                "🎯 **Behavior Tracking** (NEW!)\n"
+                "🎯 **Behavior Tracking**\n"
                 "  • Set goals and track progress\n"
                 "  • Log completed sessions\n"
                 "  • Get weekly insights\n\n"
                 "💭 **Memory & Tasks**\n"
                 "  • Save important notes\n"
                 "  • Manage your to-dos\n\n"
-                "📧 **Email Summaries**\n"
-                "  • Check your inbox\n\n"
-                "Try: 'Set goal gym 4 times per week' or 'My goals'\n\n"
+                "📧 **Email & Events** (NEW!)\n"
+                "  • Check your inbox\n"
+                "  • Detect meetings & webinars\n"
+                "  • View upcoming events\n\n"
+                "Try: 'Detect events' or 'Show events'\n\n"
                 "What would you like to do?",
             )
         )

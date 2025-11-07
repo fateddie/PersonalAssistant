@@ -24,16 +24,22 @@ from fastapi import APIRouter
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
-# Import OpenAI service
-from .openai_service import (
+# Import AI service (supports HuggingFace + OpenAI)
+from .ai_service import (
     summarize_email,
     extract_action_items,
     generate_daily_email_overview,
-    is_configured as openai_is_configured,
+    is_configured as ai_is_configured,
+    get_provider_status,
 )
 
-# Load environment variables
-load_dotenv()
+# Import event detector
+from .event_detector import detect_event_from_email, batch_detect_events
+
+# Load environment variables from config/.env
+from pathlib import Path
+config_dir = Path(__file__).parent.parent.parent.parent / "config" / ".env"
+load_dotenv(config_dir)
 
 router = APIRouter()
 
@@ -476,7 +482,7 @@ def summarise_emails(fetch_new: bool = False, limit: int = 10, generate_ai_summa
     response = {"total": len(emails), "by_priority": priority_counts, "emails": emails}
 
     # Generate AI overview if requested and configured
-    if generate_ai_summary and openai_is_configured():
+    if generate_ai_summary and ai_is_configured():
         overview = generate_daily_email_overview(emails)
         if overview:
             response["overview"] = overview
@@ -517,8 +523,8 @@ def generate_summaries_endpoint(limit: int = 10):
             "message": str
         }
     """
-    if not openai_is_configured():
-        return {"summarized": 0, "message": "OpenAI not configured. Set OPENAI_API_KEY in .env"}
+    if not ai_is_configured():
+        return {"summarized": 0, "message": "No AI provider configured. Set AI_PROVIDER in config/.env"}
 
     # Get emails without summaries (include body for summarization)
     emails = get_stored_emails(limit=limit, include_body=True)
@@ -550,3 +556,208 @@ def generate_summaries_endpoint(limit: int = 10):
         "summarized": summarized_count,
         "message": f"Successfully generated {summarized_count} AI summaries",
     }
+
+
+@router.get("/detect-events")
+def detect_events_endpoint(limit: int = 50):
+    """
+    Detect events from stored emails.
+
+    Query params:
+        limit: Maximum number of emails to scan
+
+    Returns:
+        {
+            "detected": int,
+            "events": [...],
+            "message": str
+        }
+    """
+    # Get recent emails with body text
+    emails = get_stored_emails(limit=limit, include_body=True)
+
+    # Detect events
+    detected_events = batch_detect_events(emails)
+
+    # Store in database
+    stored_count = 0
+    for event in detected_events:
+        if store_detected_event(event):
+            stored_count += 1
+
+    return {
+        "detected": stored_count,
+        "events": detected_events,
+        "message": f"Detected {stored_count} events from {len(emails)} emails"
+    }
+
+
+@router.get("/events")
+def get_detected_events(status: str = "pending", limit: int = 20):
+    """
+    Get detected events from database.
+
+    Query params:
+        status: Filter by approval_status (pending, approved, rejected, all)
+        limit: Maximum number of events to return
+
+    Returns:
+        {
+            "events": [...],
+            "total": int
+        }
+    """
+    status_filter = ""
+    if status != "all":
+        status_filter = f"WHERE approval_status = '{status}'"
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(f"""
+                SELECT id, email_id, event_type, title, date_time,
+                       location, url, attendees, confidence, approval_status
+                FROM detected_events
+                {status_filter}
+                ORDER BY date_time DESC
+                LIMIT :limit
+            """),
+            {"limit": limit}
+        )
+
+        events = []
+        for row in result:
+            events.append({
+                "id": row[0],
+                "email_id": row[1],
+                "event_type": row[2],
+                "title": row[3],
+                "date_time": row[4],
+                "location": row[5],
+                "url": row[6],
+                "attendees": row[7],
+                "confidence": row[8],
+                "approval_status": row[9]
+            })
+
+    return {"events": events, "total": len(events)}
+
+
+@router.post("/events/{event_id}/approve")
+def approve_event(event_id: int):
+    """
+    Approve a detected event (marks as approved for calendar creation).
+
+    Args:
+        event_id: ID of the detected event
+
+    Returns:
+        {
+            "status": str,
+            "message": str
+        }
+    """
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE detected_events
+                    SET approval_status = 'approved'
+                    WHERE id = :event_id
+                """),
+                {"event_id": event_id}
+            )
+
+        return {
+            "status": "approved",
+            "message": f"Event {event_id} approved. Ready for calendar creation."
+        }
+
+    except Exception as e:
+        print(f"❌ Error approving event: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/events/{event_id}/reject")
+def reject_event(event_id: int):
+    """
+    Reject a detected event (marks as rejected, won't create calendar entry).
+
+    Args:
+        event_id: ID of the detected event
+
+    Returns:
+        {
+            "status": str,
+            "message": str
+        }
+    """
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE detected_events
+                    SET approval_status = 'rejected'
+                    WHERE id = :event_id
+                """),
+                {"event_id": event_id}
+            )
+
+        return {
+            "status": "rejected",
+            "message": f"Event {event_id} rejected"
+        }
+
+    except Exception as e:
+        print(f"❌ Error rejecting event: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/ai-status")
+def get_ai_status():
+    """
+    Get AI provider status (for debugging/transparency).
+
+    Returns:
+        {
+            "provider_status": {...},
+            "message": str
+        }
+    """
+    status = get_provider_status()
+
+    return {
+        "provider_status": status,
+        "message": f"Active provider: {status['active_provider']}"
+    }
+
+
+def store_detected_event(event_data: Dict) -> bool:
+    """Store detected event in database"""
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO detected_events (
+                        email_id, event_type, title, date_time,
+                        location, url, attendees, confidence
+                    ) VALUES (
+                        :email_id, :event_type, :title, :date_time,
+                        :location, :url, :attendees, :confidence
+                    )
+                """),
+                {
+                    "email_id": event_data.get("email_id"),
+                    "event_type": event_data.get("event_type"),
+                    "title": event_data.get("title"),
+                    "date_time": event_data.get("date_time"),
+                    "location": event_data.get("location"),
+                    "url": event_data.get("url"),
+                    "attendees": event_data.get("attendees"),
+                    "confidence": event_data.get("confidence", "medium")
+                }
+            )
+        return True
+
+    except Exception as e:
+        print(f"❌ Error storing detected event: {e}")
+        return False
