@@ -10,8 +10,23 @@ import json
 from typing import Dict, Any, Optional
 from openai import OpenAI
 import os
+import sys
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from pathlib import Path
+
+# Add module directory to path for imports
+module_dir = Path(__file__).parent
+if str(module_dir) not in sys.path:
+    sys.path.insert(0, str(module_dir))
+
+# Force reload conversational_ai to avoid Streamlit cache issues
+import importlib
+import conversational_ai
+importlib.reload(conversational_ai)
+
+# Import conversational AI workflows
+from conversational_ai import TaskWorkflow, AppointmentWorkflow, GoalWorkflow
 
 # Load environment variables
 load_dotenv("config/.env")
@@ -65,9 +80,70 @@ def understand_natural_language(user_input: str) -> Dict[str, Any]:
                 }
             },
             {
-                "name": "show_tasks",
+                "name": "list_tasks",
                 "description": "Show todo list and tasks. Use when user asks about tasks, todos, things to do, or what needs to be done.",
                 "parameters": {"type": "object", "properties": {}}
+            },
+            {
+                "name": "update_task",
+                "description": "Update an existing task. Use when user wants to add/change a field in a task (e.g., 'add project to task X', 'update deadline for task Y', 'change priority of task Z').",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "task_identifier": {
+                            "type": "string",
+                            "description": "Task title or partial title to identify which task to update"
+                        },
+                        "field": {
+                            "type": "string",
+                            "enum": ["project", "category", "deadline", "notes", "tags", "context", "urgency", "importance", "effort"],
+                            "description": "Which field to update"
+                        }
+                    },
+                    "required": ["task_identifier", "field"]
+                }
+            },
+            {
+                "name": "delete_task",
+                "description": "Delete/remove a task from the todo list. Use when user wants to delete, remove, or cancel a task.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "task_identifier": {
+                            "type": "string",
+                            "description": "Task title or partial title to identify which task to delete"
+                        }
+                    },
+                    "required": ["task_identifier"]
+                }
+            },
+            {
+                "name": "approve_event",
+                "description": "Add an email-detected event to Google Calendar. Use when user wants to add, approve, or accept an event.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "event_identifier": {
+                            "type": "string",
+                            "description": "Event title or partial title to identify which event to add"
+                        }
+                    },
+                    "required": ["event_identifier"]
+                }
+            },
+            {
+                "name": "reject_event",
+                "description": "Dismiss/ignore an email-detected event. Use when user wants to dismiss, reject, or ignore an event.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "event_identifier": {
+                            "type": "string",
+                            "description": "Event title or partial title to identify which event to dismiss"
+                        }
+                    },
+                    "required": ["event_identifier"]
+                }
             },
             {
                 "name": "show_goals",
@@ -93,6 +169,17 @@ def understand_natural_language(user_input: str) -> Dict[str, Any]:
                         "task_content": {"type": "string", "description": "The task description"}
                     },
                     "required": ["task_content"]
+                }
+            },
+            {
+                "name": "add_appointment",
+                "description": "Schedule a meeting or appointment. Use when user wants to schedule, book, or add a meeting/appointment.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "appointment_content": {"type": "string", "description": "The appointment description"}
+                    },
+                    "required": ["appointment_content"]
                 }
             }
         ]
@@ -209,6 +296,10 @@ def parse_intent(user_input: str) -> Dict[str, Any]:
     if any(word in input_lower for word in ["add task", "new task", "task:", "todo:", "need to complete", "need to finish"]):
         return {"action": "add_task", "content": user_input}
 
+    # Add appointment/meeting (NEW)
+    if any(word in input_lower for word in ["add appointment", "add meeting", "schedule meeting", "schedule appointment", "book meeting", "create meeting"]):
+        return {"action": "add_appointment", "content": user_input}
+
     # Add memory (explicit)
     if any(word in input_lower for word in ["remember this", "save this", "note:", "remind me to"]):
         return {"action": "add_memory", "content": user_input}
@@ -266,6 +357,72 @@ def call_backend(intent: Dict[str, Any]) -> Dict[str, Any]:
             print(f"📋 PARAMETERS: {parameters}")
         print(f"{'='*60}")
 
+        # DEBUG: Workflow state tracking
+        active_workflow = st.session_state.get('active_workflow')
+        print(f"🔍 DEBUG: active_workflow={active_workflow}")
+        print(f"🔍 DEBUG: task_workflow_exists={'task_workflow' in st.session_state}")
+        print(f"🔍 DEBUG: appointment_workflow_exists={'appointment_workflow' in st.session_state}")
+
+        # CHECK FOR CANCEL/RESET COMMAND
+        user_input = intent.get("content", "").lower()
+        if any(word in user_input for word in ["cancel", "start over", "reset", "nevermind", "stop"]):
+            # Clear all workflows
+            if 'task_workflow' in st.session_state:
+                del st.session_state.task_workflow
+            if 'appointment_workflow' in st.session_state:
+                del st.session_state.appointment_workflow
+            if 'active_workflow' in st.session_state:
+                del st.session_state.active_workflow
+            print("✓ Workflow cancelled by user")
+            return {"success": True, "message": "✓ Workflow cancelled. What would you like to do?"}
+
+        # WORKFLOW PRESERVATION: If a workflow is active, continue it
+        if active_workflow == 'task' and action != 'add_task':
+            print(f"⚠️  WORKFLOW CORRECTION: Detected action '{action}' but task workflow is active. Forcing add_task.")
+            action = 'add_task'
+        elif active_workflow == 'appointment' and action != 'add_appointment':
+            print(f"⚠️  WORKFLOW CORRECTION: Detected action '{action}' but appointment workflow is active. Forcing add_appointment.")
+            action = 'add_appointment'
+        elif active_workflow == 'goal':
+            print(f"⚠️  WORKFLOW CORRECTION: Goal workflow is active. Continuing goal creation.")
+            # Handle goal workflow immediately - don't let it fall through to other actions
+            workflow = st.session_state.goal_workflow
+            print(f"🔄 Continuing GOAL workflow - current fields: {workflow.fields}")
+
+            # Process user's response
+            result = workflow.process_response(intent.get("content", ""))
+
+            if not result.get("extracted"):
+                # Extraction failed, ask again
+                error_msg = result.get("error", "")
+                next_question = workflow.get_confirmation_question()
+                return {"success": True, "message": f"⚠️ {error_msg}\n\n{next_question}"}
+
+            # Check if workflow complete
+            if workflow.is_complete():
+                # All fields collected → Create goal
+                goal_data = workflow.to_goal_data()
+
+                response = requests.post(
+                    f"{BACKEND_URL}/behaviour/goals",
+                    json=goal_data,
+                    timeout=5
+                )
+                response.raise_for_status()
+
+                # Clear workflow from session
+                summary = workflow.get_summary()
+                del st.session_state.goal_workflow
+                if 'active_workflow' in st.session_state:
+                    del st.session_state.active_workflow
+                print("✅ Goal workflow COMPLETED and cleared")
+
+                return {"success": True, "message": summary}
+            else:
+                # More fields needed (waiting for confirmation or additional details)
+                next_question = workflow.get_confirmation_question()
+                return {"success": True, "message": next_question}
+
         if action == "add_memory":
             response = requests.post(
                 f"{BACKEND_URL}/memory/add", json={"content": intent["content"]}, timeout=5
@@ -274,15 +431,120 @@ def call_backend(intent: Dict[str, Any]) -> Dict[str, Any]:
             return {"success": True, "message": f"✓ Saved to memory: {intent['content'][:50]}..."}
 
         elif action == "add_task":
-            # Extract task details (simple for MVP - importance/urgency default to 5)
-            response = requests.post(
-                f"{BACKEND_URL}/tasks/add",
-                json={"title": intent["content"], "urgency": 5, "importance": 5, "effort": 3},
-                timeout=5,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return {"success": True, "message": f"✓ Added task: {data['task']['title']}"}
+            # CONVERSATIONAL TASK CREATION with upfront extraction
+            # Check if workflow already exists in session state
+            if 'task_workflow' not in st.session_state:
+                # Start new workflow
+                st.session_state.task_workflow = TaskWorkflow()
+                st.session_state.active_workflow = 'task'  # SET ACTIVE WORKFLOW
+                print("🎯 Started new TASK workflow")
+
+                # NEW: Do upfront extraction from the initial message
+                workflow = st.session_state.task_workflow
+                result = workflow.process_response(intent.get("content", ""))
+
+                print(f"🔍 Upfront extraction result: {result}")
+
+                # Build response message
+                message_parts = []
+
+                # Add acknowledgment if present
+                if result.get("acknowledgment"):
+                    message_parts.append(result["acknowledgment"])
+
+                # Add suggestion if present (e.g., recurring pattern → goal suggestion)
+                if result.get("suggestion"):
+                    message_parts.append("\n\n" + result["suggestion"])
+
+                # Check if workflow is complete after extraction
+                if workflow.is_complete():
+                    # All fields extracted! Create task immediately
+                    task_data = workflow.to_dict()
+                    response = requests.post(
+                        f"{BACKEND_URL}/tasks/add",
+                        json=task_data,
+                        timeout=5,
+                    )
+                    response.raise_for_status()
+
+                    # Clear workflow from session
+                    summary = workflow.get_summary()
+                    del st.session_state.task_workflow
+                    if 'active_workflow' in st.session_state:
+                        del st.session_state.active_workflow
+                    print("✅ Task workflow COMPLETED immediately after extraction")
+
+                    if message_parts:
+                        message_parts.append("\n\n" + summary)
+                        return {"success": True, "message": "\n".join(message_parts)}
+                    else:
+                        return {"success": True, "message": summary}
+                else:
+                    # More fields needed, ask next question
+                    next_question = workflow.get_next_question()
+                    if message_parts:
+                        message_parts.append("\n\n" + next_question)
+                        return {"success": True, "message": "\n".join(message_parts)}
+                    else:
+                        return {"success": True, "message": next_question}
+
+            # Continue existing workflow
+            workflow = st.session_state.task_workflow
+            print(f"🔄 Continuing TASK workflow - current fields: {workflow.fields}")
+
+            # Process user's response
+            result = workflow.process_response(intent.get("content", ""))
+
+            if not result.get("extracted"):
+                # Extraction failed, ask again
+                error_msg = result.get("error", "")
+                next_question = workflow.get_next_question()
+                return {"success": True, "message": f"⚠️ {error_msg}\n\n{next_question}"}
+
+            # Check if user wants to create a goal instead of task
+            if result.get("create_goal"):
+                # User confirmed they want a goal for the recurring pattern
+                # Switch from TaskWorkflow to GoalWorkflow
+                print(f"✅ Switching from task to goal workflow")
+
+                # Create GoalWorkflow and initialize from TaskWorkflow
+                goal_workflow = GoalWorkflow()
+                goal_workflow.set_from_task_workflow(workflow)
+
+                # Clear task workflow from session
+                del st.session_state.task_workflow
+
+                # Store goal workflow in session
+                st.session_state.goal_workflow = goal_workflow
+                st.session_state.active_workflow = 'goal'
+
+                # Ask for confirmation
+                confirmation_question = goal_workflow.get_confirmation_question()
+                return {"success": True, "message": confirmation_question}
+
+            # Check if workflow complete
+            if workflow.is_complete():
+                # All fields collected → Create task
+                task_data = workflow.to_dict()
+                response = requests.post(
+                    f"{BACKEND_URL}/tasks/add",
+                    json=task_data,
+                    timeout=5,
+                )
+                response.raise_for_status()
+
+                # Clear workflow from session
+                summary = workflow.get_summary()
+                del st.session_state.task_workflow
+                if 'active_workflow' in st.session_state:
+                    del st.session_state.active_workflow
+                print("✅ Task workflow COMPLETED and cleared")
+
+                return {"success": True, "message": summary}
+            else:
+                # More fields needed, ask next question
+                next_question = workflow.get_next_question()
+                return {"success": True, "message": next_question}
 
         elif action == "list_tasks":
             response = requests.get(f"{BACKEND_URL}/tasks/list", timeout=5)
@@ -302,11 +564,290 @@ def call_backend(intent: Dict[str, Any]) -> Dict[str, Any]:
 
             return {"success": True, "message": task_list}
 
+        elif action == "update_task":
+            # TASK UPDATE - Simple single-field update
+            task_identifier = intent.get("parameters", {}).get("task_identifier", "")
+            field = intent.get("parameters", {}).get("field", "")
+
+            if not task_identifier or not field:
+                return {"success": True, "message": "⚠️ Please specify which task and which field to update."}
+
+            # Fetch all tasks to find matching one
+            response = requests.get(f"{BACKEND_URL}/tasks/list", timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            tasks = data.get("prioritised_tasks", [])
+
+            # Find task by fuzzy title matching (simple substring match)
+            matching_task = None
+            task_id = None
+
+            # Also try direct database query to get task ID
+            import sqlite3
+            db_path = "assistant/data/memory.db"
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT id, title FROM tasks WHERE completed = 0 AND title LIKE ? LIMIT 1",
+                    (f"%{task_identifier}%",)
+                )
+                result = cursor.fetchone()
+                conn.close()
+
+                if result:
+                    task_id = result[0]
+                    matching_task = result[1]
+            except Exception as e:
+                print(f"⚠️ Error querying tasks: {e}")
+
+            if not task_id:
+                return {"success": True, "message": f"⚠️ Could not find task matching '{task_identifier}'. Please try with more specific keywords."}
+
+            # Check if we already have the value in session state
+            update_key = f"update_task_{task_id}_{field}"
+            if update_key not in st.session_state:
+                # Need to collect the value - ask user
+                st.session_state[update_key] = {"task_id": task_id, "field": field, "title": matching_task}
+
+                field_prompts = {
+                    "project": "What project should this task be associated with?",
+                    "category": "What category? (personal, business, learning, health)",
+                    "deadline": "What's the new deadline? (e.g., 'tomorrow', 'Friday', 'Nov 20')",
+                    "notes": "What notes would you like to add?",
+                    "tags": "What tags? (comma-separated)",
+                    "context": "What's the context (where/when can this be done)?",
+                    "urgency": "What's the new urgency? (1-5, where 5 is most urgent)",
+                    "importance": "What's the new importance? (1-5, where 5 is most important)",
+                    "effort": "What's the new effort level? (1-5, where 5 is most effort)"
+                }
+
+                prompt = field_prompts.get(field, f"What's the new value for {field}?")
+                return {"success": True, "message": f"Found task: '{matching_task}'\n\n{prompt}"}
+            else:
+                # We have the value from user's response - apply the update
+                user_value = intent.get("content", "").strip()
+                update_data = {field: user_value}
+
+                # Convert numeric fields if needed
+                if field in ["urgency", "importance", "effort"]:
+                    try:
+                        update_data[field] = int(user_value)
+                    except ValueError:
+                        return {"success": True, "message": f"⚠️ {field.capitalize()} must be a number (1-5). Please try again."}
+
+                # Send update to backend
+                response = requests.put(
+                    f"{BACKEND_URL}/tasks/update/{task_id}",
+                    json=update_data,
+                    timeout=5
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                # Clear session state
+                del st.session_state[update_key]
+
+                return {"success": True, "message": f"✅ Updated '{matching_task}': {field} = {user_value}"}
+
+        elif action == "delete_task":
+            # DELETE TASK
+            task_identifier = intent.get("parameters", {}).get("task_identifier", "")
+
+            if not task_identifier:
+                return {"success": True, "message": "⚠️ Please specify which task to delete."}
+
+            # Find task by fuzzy matching
+            import sqlite3
+            db_path = "assistant/data/memory.db"
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT id, title FROM tasks WHERE completed = 0 AND title LIKE ? LIMIT 1",
+                    (f"%{task_identifier}%",)
+                )
+                result = cursor.fetchone()
+                conn.close()
+
+                if result:
+                    task_id = result[0]
+                    task_title = result[1]
+                else:
+                    return {"success": True, "message": f"⚠️ Could not find task matching '{task_identifier}'."}
+
+                # Delete task
+                response = requests.delete(
+                    f"{BACKEND_URL}/tasks/delete/{task_id}",
+                    timeout=5
+                )
+                response.raise_for_status()
+
+                return {"success": True, "message": f"✅ Deleted task: '{task_title}'"}
+
+            except Exception as e:
+                print(f"⚠️ Error deleting task: {e}")
+                return {"success": False, "message": f"❌ Error deleting task: {str(e)}"}
+
+        elif action == "approve_event":
+            # ADD EMAIL EVENT TO CALENDAR
+            event_identifier = intent.get("parameters", {}).get("event_identifier", "")
+
+            if not event_identifier:
+                return {"success": True, "message": "⚠️ Please specify which event to add."}
+
+            # Fetch pending events
+            response = requests.get(f"{BACKEND_URL}/emails/events?status=pending&future_only=true", timeout=5)
+            response.raise_for_status()
+            events = response.json().get("events", [])
+
+            # Find matching event
+            matching_event = None
+            for event in events:
+                if event_identifier.lower() in event.get("title", "").lower():
+                    matching_event = event
+                    break
+
+            if not matching_event:
+                return {"success": True, "message": f"⚠️ Could not find event matching '{event_identifier}'."}
+
+            event_id = matching_event.get("id")
+            event_title = matching_event.get("title")
+
+            # Approve event (marks as approved)
+            approve_response = requests.post(
+                f"{BACKEND_URL}/emails/events/{event_id}/approve",
+                timeout=5
+            )
+
+            if approve_response.status_code != 200:
+                return {"success": False, "message": f"❌ Could not approve event."}
+
+            # Create calendar event
+            event_data = {
+                "summary": event_title,
+                "start_time": matching_event.get("date_time"),
+                "location": matching_event.get("location"),
+                "description": f"Event detected from email. URL: {matching_event.get('url', '')}"
+            }
+
+            # Calculate end time (default 1 hour)
+            from datetime import datetime, timedelta
+            try:
+                start = datetime.fromisoformat(matching_event.get("date_time").replace("Z", "+00:00"))
+                end = start + timedelta(hours=1)
+                event_data["end_time"] = end.isoformat()
+            except:
+                pass
+
+            cal_response = requests.post(
+                f"{BACKEND_URL}/calendar/events/create",
+                json=event_data,
+                timeout=5
+            )
+
+            if cal_response.status_code == 200 or cal_response.status_code == 201:
+                return {"success": True, "message": f"✅ Added to Google Calendar: '{event_title}'"}
+            else:
+                return {"success": False, "message": f"⚠️ Event approved but calendar creation failed. Make sure Google Calendar is connected."}
+
+        elif action == "reject_event":
+            # DISMISS/IGNORE EMAIL EVENT
+            event_identifier = intent.get("parameters", {}).get("event_identifier", "")
+
+            if not event_identifier:
+                return {"success": True, "message": "⚠️ Please specify which event to dismiss."}
+
+            # Fetch pending events
+            response = requests.get(f"{BACKEND_URL}/emails/events?status=pending&future_only=true", timeout=5)
+            response.raise_for_status()
+            events = response.json().get("events", [])
+
+            # Find matching event
+            matching_event = None
+            for event in events:
+                if event_identifier.lower() in event.get("title", "").lower():
+                    matching_event = event
+                    break
+
+            if not matching_event:
+                return {"success": True, "message": f"⚠️ Could not find event matching '{event_identifier}'."}
+
+            event_id = matching_event.get("id")
+            event_title = matching_event.get("title")
+
+            # Reject event
+            reject_response = requests.post(
+                f"{BACKEND_URL}/emails/events/{event_id}/reject",
+                timeout=5
+            )
+
+            if reject_response.status_code == 200:
+                return {"success": True, "message": f"✅ Dismissed event: '{event_title}'"}
+            else:
+                return {"success": False, "message": f"❌ Could not dismiss event."}
+
         elif action == "email_summary":
             response = requests.get(f"{BACKEND_URL}/emails/summarise", timeout=5)
             response.raise_for_status()
             data = response.json()
             return {"success": True, "message": f"📧 {data.get('summary', 'No summary available')}"}
+
+        elif action == "add_appointment":
+            # CONVERSATIONAL APPOINTMENT CREATION
+            if 'appointment_workflow' not in st.session_state:
+                # Start new workflow
+                st.session_state.appointment_workflow = AppointmentWorkflow()
+                st.session_state.active_workflow = 'appointment'  # SET ACTIVE WORKFLOW
+                print("🎯 Started new APPOINTMENT workflow")
+                next_question = st.session_state.appointment_workflow.get_next_question()
+                return {"success": True, "message": next_question}
+
+            # Continue existing workflow
+            workflow = st.session_state.appointment_workflow
+            print(f"🔄 Continuing APPOINTMENT workflow - current fields: {workflow.fields}")
+
+            # Process user's response
+            result = workflow.process_response(intent.get("content", ""))
+
+            if not result.get("extracted"):
+                # Extraction failed, ask again
+                error_msg = result.get("error", "")
+                next_question = workflow.get_next_question()
+                return {"success": True, "message": f"⚠️ {error_msg}\n\n{next_question}"}
+
+            # Check if workflow complete
+            if workflow.is_complete():
+                # All fields collected → Create calendar event
+                event_data = workflow.to_calendar_event()
+
+                # Create event in Google Calendar
+                response = requests.post(
+                    f"{BACKEND_URL}/calendar/events/create",
+                    json=event_data,
+                    timeout=5,
+                )
+
+                if response.status_code == 200 or response.status_code == 201:
+                    # Success
+                    summary = workflow.get_summary()
+                    del st.session_state.appointment_workflow
+                    if 'active_workflow' in st.session_state:
+                        del st.session_state.active_workflow
+                    print("✅ Appointment workflow COMPLETED and cleared")
+                    return {"success": True, "message": summary}
+                else:
+                    # Calendar API error
+                    del st.session_state.appointment_workflow
+                    if 'active_workflow' in st.session_state:
+                        del st.session_state.active_workflow
+                    print("❌ Appointment workflow FAILED and cleared")
+                    error_detail = response.json().get("detail", "Unknown error")
+                    return {"success": False, "message": f"❌ Could not create calendar event: {error_detail}\n\nTip: Make sure Google Calendar is connected. Visit http://localhost:8000/calendar/auth to authenticate."}
+            else:
+                # More fields needed, ask next question
+                next_question = workflow.get_next_question()
+                return {"success": True, "message": next_question}
 
         elif action == "detect_events":
             response = requests.get(f"{BACKEND_URL}/emails/detect-events?limit=50", timeout=10)
@@ -742,7 +1283,23 @@ def streamlit_chat():
             with st.spinner("Loading goals..."):
                 intent = parse_intent("show my goals")
                 result = call_backend(intent)
-            st.session_state["messages"].append({"role": "assistant", "content": result["message"]})
+
+            # Handle goals_data rendering (same as main chat)
+            if result.get("goals_data"):
+                goals = result["goals_data"]
+                goals_message = "🎯 **Your Goals:**\n\n"
+                for goal in goals:
+                    progress_pct = (goal['completed'] / goal['target_per_week']) * 100 if goal['target_per_week'] > 0 else 0
+                    status_emoji = "🔥" if progress_pct >= 75 else "✅" if progress_pct >= 50 else "⚠️"
+                    goals_message += f"{status_emoji} **{goal['name']}** - {goal['completed']}/{goal['target_per_week']} sessions ({progress_pct:.0f}%)\n\n"
+
+                st.session_state["messages"].append({
+                    "role": "assistant",
+                    "content": goals_message,
+                    "goals_visual": goals
+                })
+            else:
+                st.session_state["messages"].append({"role": "assistant", "content": result["message"]})
             st.rerun()
 
         if st.button("✅ My Tasks", use_container_width=True, key="sidebar_tasks"):
@@ -757,6 +1314,27 @@ def streamlit_chat():
             st.session_state["messages"].append({"role": "user", "content": "weekly review"})
             with st.spinner("Loading review..."):
                 intent = parse_intent("weekly review")
+                result = call_backend(intent)
+            st.session_state["messages"].append({"role": "assistant", "content": result["message"]})
+            st.rerun()
+
+        st.markdown("---")
+        st.markdown("### ➕ Create New")
+
+        # Add Task button
+        if st.button("➕ Add Task", use_container_width=True, key="sidebar_add_task"):
+            st.session_state["messages"].append({"role": "user", "content": "add task"})
+            with st.spinner("Starting..."):
+                intent = parse_intent("add task")
+                result = call_backend(intent)
+            st.session_state["messages"].append({"role": "assistant", "content": result["message"]})
+            st.rerun()
+
+        # Add Appointment button
+        if st.button("📅 Add Appointment", use_container_width=True, key="sidebar_add_appointment"):
+            st.session_state["messages"].append({"role": "user", "content": "add appointment"})
+            with st.spinner("Starting..."):
+                intent = parse_intent("add appointment")
                 result = call_backend(intent)
             st.session_state["messages"].append({"role": "assistant", "content": result["message"]})
             st.rerun()

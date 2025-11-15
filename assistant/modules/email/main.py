@@ -616,7 +616,7 @@ def get_detected_events(status: str = "pending", limit: int = 20, future_only: b
 
     # Future events only filter
     if future_only:
-        filters.append("date_time >= date('now')")
+        filters.append("date_time >= datetime('now')")
 
     where_clause = ""
     if filters:
