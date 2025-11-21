@@ -1,6 +1,6 @@
 modules:
   - name: voice
-    enabled: true
+    enabled: false  # Streamlit UI - runs separately, not loaded by orchestrator
     description: "Streamlit chat UI (voice-ready)"
   - name: memory
     enabled: true
