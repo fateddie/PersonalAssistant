@@ -1,0 +1,33 @@
+# Pre-commit hooks for AskSharon.ai
+#
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+#
+# This will run architecture checks before each commit.
+# To bypass temporarily: git commit --no-verify
+
+repos:
+  - repo: local
+    hooks:
+      - id: architecture-check
+        name: Architecture Validation
+        entry: python tools/check_architecture.py
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [commit]
+
+      - id: black-format
+        name: Black Code Formatting
+        entry: black
+        language: system
+        types: [python]
+        args: [--check, --diff]
+
+      - id: mypy-type-check
+        name: MyPy Type Checking
+        entry: mypy
+        language: system
+        types: [python]
+        args: [--ignore-missing-imports]
+        pass_filenames: false

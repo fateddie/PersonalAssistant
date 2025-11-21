@@ -6,6 +6,13 @@
 3. **Recover automatically** - Retry logic, graceful degradation
 4. **Document decisions** - DECISIONS.md for all choices
 
+## AI Workflow (MANDATORY)
+**Before any substantial code change, AI MUST:**
+1. Read `docs/principles.md`, `docs/ENGINEERING_GUIDELINES.md`, `docs/AI_WORKFLOW.md`
+2. Follow **Plan → Implement → Self-review** workflow
+3. Run `python tools/check_architecture.py` before claiming complete
+4. Verify code passes: pytest, black, mypy
+
 ## The 26 Fundamental Rules
 
 ### Rules 1-3: Module Architecture

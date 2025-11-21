@@ -98,45 +98,90 @@ def detect_event_type(text: str) -> Optional[str]:
     return None
 
 
-def extract_datetime(text: str) -> Optional[datetime]:
+def extract_datetime(text: str, email_date: Optional[datetime] = None) -> Optional[datetime]:
     """
-    Extract date/time from text using dateutil parser.
+    Extract date/time from text using dateutil parser with improved logic.
 
     Args:
         text: Text containing date/time information
+        email_date: Date the email was received (for context)
 
     Returns:
         datetime object or None if no date found
     """
+    # Try to extract time first (more specific)
+    time_match = None
+    for pattern in TIME_PATTERNS:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            time_match = matches[0]
+            break
+
     # Try to find date patterns
     date_candidates = []
-
-    for pattern in DATE_KEYWORDS + TIME_PATTERNS:
+    for pattern in DATE_KEYWORDS:
         matches = re.findall(pattern, text, re.IGNORECASE)
         date_candidates.extend(matches)
 
-    # Try parsing each candidate
+    # Combine date and time if both found
+    if date_candidates and time_match:
+        combined_text = f"{date_candidates[0]} {time_match}"
+        try:
+            dt = date_parser.parse(combined_text, fuzzy=True)
+
+            # If date is in the past, try next occurrence
+            now = datetime.now()
+            if dt < now:
+                # If it's a recent past date (within 7 days), move to next year
+                if (now - dt).days < 7:
+                    dt = dt.replace(year=now.year + 1)
+                else:
+                    # Add one week
+                    dt += timedelta(days=7)
+
+            return dt
+        except (ValueError, TypeError):
+            pass
+
+    # Try parsing each date candidate with current time
     for candidate in date_candidates:
         try:
-            # Use dateutil's fuzzy parsing
             dt = date_parser.parse(candidate, fuzzy=True)
 
-            # If parsed date is in the past and no time specified, assume next occurrence
-            if dt.date() < datetime.now().date() and dt.time() == datetime.min.time():
-                # Add 7 days (assume next week)
-                dt += timedelta(days=7)
+            # If no time was in the original text, set to start of day
+            if dt.time() == datetime.min.time():
+                # If date is in past, try next occurrence
+                now = datetime.now()
+                if dt.date() < now.date():
+                    # Check if it's a month/day pattern without year
+                    if (now - dt).days < 365:
+                        dt = dt.replace(year=now.year + 1)
+                    else:
+                        dt += timedelta(days=7)
 
             return dt
 
         except (ValueError, TypeError):
             continue
 
-    # Try parsing the full text (fuzzy)
+    # Last resort: try parsing the full text with better filtering
     try:
         dt = date_parser.parse(text, fuzzy=True)
-        # Only return if it's a future date or today
-        if dt >= datetime.now() - timedelta(hours=12):
-            return dt
+        now = datetime.now()
+
+        # Reject if date is significantly in the past (more than 2 hours ago)
+        if dt < now - timedelta(hours=2):
+            # Try to interpret as a future date by adjusting year
+            if dt.month == now.month and dt.day < now.day:
+                # Same month but past day - likely next year
+                dt = dt.replace(year=now.year + 1)
+            elif (now - dt).days < 60:
+                # Recent past - likely next year
+                dt = dt.replace(year=now.year + 1)
+            else:
+                return None
+
+        return dt
     except:
         pass
 

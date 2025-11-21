@@ -141,22 +141,57 @@ def create_goal(goal: Goal):
 
 
 @router.get("/goals")
-def list_goals():
-    """List all active goals"""
+def list_goals(status: str = "active"):
+    """
+    List goals filtered by status.
+
+    Query params:
+        status: Filter by status (values: 'active', 'pending', 'archived', 'rejected', 'all')
+                Default: 'active' (only show active goals)
+
+    Returns:
+        {
+            "goals": [...],
+            "pending_goals": [...],  # Only if status='pending' or 'all'
+            "active_count": int,
+            "pending_count": int
+        }
+    """
+    # Build WHERE clause based on status filter
+    where_clause = ""
+    if status != "all":
+        where_clause = f"WHERE status = '{status}'"
+
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM goals ORDER BY id"))
-        goals = [
-            {
+        result = conn.execute(text(f"SELECT * FROM goals {where_clause} ORDER BY id"))
+
+        active_goals = []
+        pending_goals = []
+
+        for row in result:
+            goal_dict = {
                 "id": row[0],
                 "name": row[1],
                 "target_per_week": row[2],
                 "completed": row[3],
                 "last_update": row[4],
+                "status": row[5] if len(row) > 5 else "active"
             }
-            for row in result
-        ]
 
-    return {"goals": goals}
+            # Separate by status for detailed response
+            if goal_dict["status"] == "active":
+                active_goals.append(goal_dict)
+            elif goal_dict["status"] == "pending":
+                pending_goals.append(goal_dict)
+
+        all_goals = active_goals + pending_goals
+
+    return {
+        "goals": all_goals if status == "all" else (active_goals if status == "active" else pending_goals),
+        "pending_goals": pending_goals,
+        "active_count": len(active_goals),
+        "pending_count": len(pending_goals)
+    }
 
 
 @router.get("/goals/{goal_id}")
@@ -208,6 +243,112 @@ def delete_goal(goal_id: int):
         conn.execute(text("DELETE FROM goals WHERE id = :id"), {"id": goal_id})
 
     return {"status": "deleted", "goal_id": goal_id}
+
+
+@router.post("/goals/accept/{goal_id}")
+def accept_goal(goal_id: int):
+    """
+    Accept a pending goal (sets status to 'active').
+
+    Args:
+        goal_id: ID of the goal to accept
+
+    Returns:
+        {"status": "accepted", "goal_id": int, "goal": dict}
+    """
+    try:
+        # Check if goal exists
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT name, status FROM goals WHERE id = :goal_id"),
+                {"goal_id": goal_id}
+            )
+            row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Goal {goal_id} not found")
+
+        goal_name, current_status = row
+
+        # Update status to active
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE goals
+                    SET status = 'active'
+                    WHERE id = :goal_id
+                """),
+                {"goal_id": goal_id}
+            )
+
+        print(f"✅ Goal accepted: {goal_name} (ID: {goal_id}) - {current_status} → active")
+
+        return {
+            "status": "accepted",
+            "goal_id": goal_id,
+            "name": goal_name,
+            "previous_status": current_status,
+            "new_status": "active"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error accepting goal: {e}")
+        raise HTTPException(status_code=500, detail=f"Error accepting goal: {str(e)}")
+
+
+@router.post("/goals/reject/{goal_id}")
+def reject_goal(goal_id: int):
+    """
+    Reject a pending goal (sets status to 'rejected').
+
+    Args:
+        goal_id: ID of the goal to reject
+
+    Returns:
+        {"status": "rejected", "goal_id": int, "goal": dict}
+    """
+    try:
+        # Check if goal exists
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT name, status FROM goals WHERE id = :goal_id"),
+                {"goal_id": goal_id}
+            )
+            row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Goal {goal_id} not found")
+
+        goal_name, current_status = row
+
+        # Update status to rejected
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE goals
+                    SET status = 'rejected'
+                    WHERE id = :goal_id
+                """),
+                {"goal_id": goal_id}
+            )
+
+        print(f"✅ Goal rejected: {goal_name} (ID: {goal_id}) - {current_status} → rejected")
+
+        return {
+            "status": "rejected",
+            "goal_id": goal_id,
+            "name": goal_name,
+            "previous_status": current_status,
+            "new_status": "rejected"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error rejecting goal: {e}")
+        raise HTTPException(status_code=500, detail=f"Error rejecting goal: {str(e)}")
 
 
 # Session Tracking

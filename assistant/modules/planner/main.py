@@ -117,43 +117,87 @@ def add_task(task: Task):
 
 
 @router.get("/list")
-def list_tasks():
+def list_tasks(status: str = "active"):
     """
-    List all incomplete tasks, sorted by priority score.
+    List incomplete tasks, sorted by priority score.
+
+    Query params:
+        status: Filter by status (values: 'active', 'pending', 'rejected', 'all')
+                Default: 'active' (only show active tasks)
 
     Priority formula: importance*0.6 + urgency*0.3 - effort*0.1
 
     Returns:
-        {"prioritised_tasks": [(title, priority_score), ...]}
+        {
+            "prioritised_tasks": [(title, priority_score), ...],
+            "pending_tasks": [{"id": int, "title": str, ...}],  # Only if status='pending' or 'all'
+            "active_count": int,
+            "pending_count": int
+        }
     """
     try:
+        # Build WHERE clause based on status filter
+        where_clause = "WHERE completed = 0"
+
+        if status != "all":
+            where_clause += f" AND status = '{status}'"
+
         with engine.connect() as conn:
             result = conn.execute(
-                text("""
-                    SELECT id, title, urgency, importance, effort
+                text(f"""
+                    SELECT id, title, urgency, importance, effort, status
                     FROM tasks
-                    WHERE completed = 0
+                    {where_clause}
                     ORDER BY created_at DESC
                 """)
             )
             tasks = result.fetchall()
 
-        if not tasks:
-            return {"prioritised_tasks": []}
+        # Separate by status for detailed response
+        active_tasks = []
+        pending_tasks = []
 
-        # Calculate priority scores
+        for row in tasks:
+            task_dict = {
+                "id": row[0],
+                "title": row[1],
+                "urgency": row[2],
+                "importance": row[3],
+                "effort": row[4],
+                "status": row[5]
+            }
+
+            if row[5] == "active":
+                active_tasks.append(task_dict)
+            elif row[5] == "pending":
+                pending_tasks.append(task_dict)
+
+        if not tasks:
+            return {
+                "prioritised_tasks": [],
+                "pending_tasks": [],
+                "active_count": 0,
+                "pending_count": 0
+            }
+
+        # Calculate priority scores for active tasks
         scored = [
             (
                 row[1],  # title
                 (row[3] * 0.6) + (row[2] * 0.3) - (row[4] * 0.1)  # priority score
             )
-            for row in tasks
+            for row in tasks if row[5] == "active" or status == "all"
         ]
 
         # Sort by priority (highest first)
         sorted_tasks = sorted(scored, key=lambda x: x[1], reverse=True)
 
-        return {"prioritised_tasks": sorted_tasks}
+        return {
+            "prioritised_tasks": sorted_tasks,
+            "pending_tasks": pending_tasks,
+            "active_count": len(active_tasks),
+            "pending_count": len(pending_tasks)
+        }
 
     except Exception as e:
         print(f"❌ Error listing tasks: {e}")
@@ -287,3 +331,109 @@ def delete_task(task_id: int):
     except Exception as e:
         print(f"❌ Error deleting task: {e}")
         raise HTTPException(status_code=500, detail=f"Error deleting task: {str(e)}")
+
+
+@router.post("/accept/{task_id}")
+def accept_task(task_id: int):
+    """
+    Accept a pending task (sets status to 'active').
+
+    Args:
+        task_id: ID of the task to accept
+
+    Returns:
+        {"status": "accepted", "task_id": int, "task": dict}
+    """
+    try:
+        # Check if task exists
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT title, status FROM tasks WHERE id = :task_id"),
+                {"task_id": task_id}
+            )
+            row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+        task_title, current_status = row
+
+        # Update status to active
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE tasks
+                    SET status = 'active'
+                    WHERE id = :task_id
+                """),
+                {"task_id": task_id}
+            )
+
+        print(f"✅ Task accepted: {task_title} (ID: {task_id}) - {current_status} → active")
+
+        return {
+            "status": "accepted",
+            "task_id": task_id,
+            "title": task_title,
+            "previous_status": current_status,
+            "new_status": "active"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error accepting task: {e}")
+        raise HTTPException(status_code=500, detail=f"Error accepting task: {str(e)}")
+
+
+@router.post("/reject/{task_id}")
+def reject_task(task_id: int):
+    """
+    Reject a pending task (sets status to 'rejected').
+
+    Args:
+        task_id: ID of the task to reject
+
+    Returns:
+        {"status": "rejected", "task_id": int, "task": dict}
+    """
+    try:
+        # Check if task exists
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT title, status FROM tasks WHERE id = :task_id"),
+                {"task_id": task_id}
+            )
+            row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+        task_title, current_status = row
+
+        # Update status to rejected
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE tasks
+                    SET status = 'rejected'
+                    WHERE id = :task_id
+                """),
+                {"task_id": task_id}
+            )
+
+        print(f"✅ Task rejected: {task_title} (ID: {task_id}) - {current_status} → rejected")
+
+        return {
+            "status": "rejected",
+            "task_id": task_id,
+            "title": task_title,
+            "previous_status": current_status,
+            "new_status": "rejected"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error rejecting task: {e}")
+        raise HTTPException(status_code=500, detail=f"Error rejecting task: {str(e)}")

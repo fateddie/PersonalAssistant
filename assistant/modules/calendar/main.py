@@ -300,15 +300,17 @@ def list_calendars():
 def list_events(
     calendar_id: str = "primary",
     max_results: int = 10,
-    time_min: str = None
+    time_min: str = None,
+    time_max: str = None
 ):
     """
     List upcoming events from Google Calendar.
 
     Query params:
         calendar_id: Calendar ID (default: "primary")
-        max_results: Maximum number of events to return
+        max_results: Maximum number of events to return (default: 10)
         time_min: ISO format datetime (default: now)
+        time_max: ISO format datetime (default: 3 months from now)
 
     Returns:
         {
@@ -323,19 +325,43 @@ def list_events(
         if not time_min:
             time_min = datetime.utcnow().isoformat() + 'Z'
 
+        # Default time_max to 3 months from now (prevents far-future recurring events)
+        if not time_max:
+            three_months_later = datetime.utcnow() + timedelta(days=90)
+            time_max = three_months_later.isoformat() + 'Z'
+
         events_result = service.events().list(
             calendarId=calendar_id,
             timeMin=time_min,
+            timeMax=time_max,
             maxResults=max_results,
             singleEvents=True,
             orderBy='startTime'
         ).execute()
 
+        # Get list of hidden event IDs
+        hidden_event_ids = set()
+        try:
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text("SELECT google_event_id FROM hidden_calendar_events")
+                )
+                hidden_event_ids = {row[0] for row in result}
+        except:
+            pass  # If table doesn't exist or error, just continue
+
+        # Build events list, filtering out hidden events
         events = []
         for event in events_result.get('items', []):
+            event_id = event['id']
+
+            # Skip hidden events
+            if event_id in hidden_event_ids:
+                continue
+
             start = event['start'].get('dateTime', event['start'].get('date'))
             events.append({
-                "id": event['id'],
+                "id": event_id,
                 "summary": event.get('summary', 'No title'),
                 "start": start,
                 "end": event['end'].get('dateTime', event['end'].get('date')),
@@ -407,6 +433,18 @@ def create_event(event_data: Dict):
 
         if 'description' in event_data and event_data['description']:
             event['description'] = event_data['description']
+
+        # Add reminders if specified
+        if 'reminders' in event_data and event_data['reminders']:
+            event['reminders'] = {
+                'useDefault': False,
+                'overrides': event_data['reminders']
+            }
+        else:
+            # Use default calendar reminders
+            event['reminders'] = {
+                'useDefault': True
+            }
 
         # Create event
         calendar_id = event_data.get('calendar_id', 'primary')
@@ -568,3 +606,120 @@ def check_conflicts(start_time: str, end_time: str, calendar_id: str = "primary"
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking conflicts: {str(e)}")
+
+
+@router.post("/events/hide/{google_event_id}")
+def hide_calendar_event(google_event_id: str):
+    """
+    Hide a calendar event from display.
+
+    Args:
+        google_event_id: Google Calendar event ID
+
+    Returns:
+        {"status": "hidden", "event_id": str}
+    """
+    try:
+        # Get event title from Google Calendar for logging
+        service = get_calendar_service()
+        event_title = "Unknown Event"
+
+        if service:
+            try:
+                event = service.events().get(calendarId='primary', eventId=google_event_id).execute()
+                event_title = event.get('summary', 'Unknown Event')
+            except:
+                pass
+
+        # Add to hidden events table
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    INSERT OR IGNORE INTO hidden_calendar_events
+                    (google_event_id, event_title)
+                    VALUES (:event_id, :title)
+                """),
+                {"event_id": google_event_id, "title": event_title}
+            )
+
+        print(f"✅ Calendar event hidden: {event_title} (ID: {google_event_id})")
+
+        return {
+            "status": "hidden",
+            "event_id": google_event_id,
+            "event_title": event_title,
+            "message": f"Event '{event_title}' hidden from display"
+        }
+
+    except Exception as e:
+        print(f"❌ Error hiding calendar event: {e}")
+        raise HTTPException(status_code=500, detail=f"Error hiding event: {str(e)}")
+
+
+@router.post("/events/unhide/{google_event_id}")
+def unhide_calendar_event(google_event_id: str):
+    """
+    Unhide a previously hidden calendar event.
+
+    Args:
+        google_event_id: Google Calendar event ID
+
+    Returns:
+        {"status": "unhidden", "event_id": str}
+    """
+    try:
+        # Remove from hidden events table
+        with engine.begin() as conn:
+            result = conn.execute(
+                text("""
+                    DELETE FROM hidden_calendar_events
+                    WHERE google_event_id = :event_id
+                """),
+                {"event_id": google_event_id}
+            )
+
+        print(f"✅ Calendar event unhidden (ID: {google_event_id})")
+
+        return {
+            "status": "unhidden",
+            "event_id": google_event_id,
+            "message": "Event will now be visible"
+        }
+
+    except Exception as e:
+        print(f"❌ Error unhiding calendar event: {e}")
+        raise HTTPException(status_code=500, detail=f"Error unhiding event: {str(e)}")
+
+
+@router.get("/events/hidden")
+def list_hidden_events():
+    """
+    List all hidden calendar events.
+
+    Returns:
+        {"hidden_events": [...]}
+    """
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT google_event_id, event_title, hidden_at
+                    FROM hidden_calendar_events
+                    ORDER BY hidden_at DESC
+                """)
+            )
+
+            hidden_events = [
+                {
+                    "google_event_id": row[0],
+                    "title": row[1],
+                    "hidden_at": row[2]
+                }
+                for row in result
+            ]
+
+        return {"hidden_events": hidden_events}
+
+    except Exception as e:
+        print(f"❌ Error listing hidden events: {e}")
+        raise HTTPException(status_code=500, detail=f"Error listing hidden events: {str(e)}")
