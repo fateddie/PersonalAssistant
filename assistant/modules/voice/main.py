@@ -392,6 +392,43 @@ def main():
 
             description = st.text_area("Description", placeholder="Optional description...")
 
+            # Calendar integration for goals
+            add_to_calendar = False
+            recurring_days = None
+            session_time_start = None
+            session_time_end = None
+
+            if item_type == "goal":
+                st.markdown("#### 📅 Calendar Integration (Optional)")
+                st.caption("Add recurring calendar events for this goal")
+
+                add_to_calendar = st.checkbox("Add to Calendar", value=False)
+
+                if add_to_calendar:
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        recurring_days = st.text_input(
+                            "Recurring Days",
+                            placeholder="e.g., 'mon, wed, fri' or 'weekdays'",
+                            help="Enter days for recurring sessions"
+                        )
+
+                    with col2:
+                        time_col1, time_col2 = st.columns(2)
+                        with time_col1:
+                            session_time_start = st.text_input(
+                                "Start Time",
+                                placeholder="e.g., '7:30am'",
+                                help="Session start time"
+                            )
+                        with time_col2:
+                            session_time_end = st.text_input(
+                                "End Time",
+                                placeholder="e.g., '9:00am'",
+                                help="Session end time"
+                            )
+
             col1, col2 = st.columns(2)
             with col1:
                 start_time = st.time_input("Start Time (optional)", value=None)
@@ -403,21 +440,70 @@ def main():
                     st.error("Title is required")
                 else:
                     try:
-                        new_item = {
-                            "type": item_type,
-                            "title": title,
-                            "date": str(date_val),
-                            "status": status,
-                            "source": source,
-                            "priority": priority,
-                            "description": description if description else None,
-                            "start_time": start_time.strftime("%H:%M") if start_time else None,
-                            "location": location if location else None
-                        }
+                        # If goal with calendar, use BIL endpoint directly
+                        if item_type == "goal" and add_to_calendar and recurring_days and session_time_start and session_time_end:
+                            import requests
+                            import re
 
-                        created = client.create_item(new_item)
-                        st.success(f"✅ Created: {created['title']}")
-                        st.balloons()
+                            # Extract target_per_week from description or default to days count
+                            target_per_week = 3  # Default
+
+                            # Try to parse "X times per week" from description
+                            if description:
+                                match = re.search(r'(\d+)\s*(?:times?|x)\s*(?:per|a)\s*week', description.lower())
+                                if match:
+                                    target_per_week = int(match.group(1))
+
+                            goal_data = {
+                                "name": title,
+                                "target_per_week": target_per_week,
+                                "description": description,
+                                "recurring_days": recurring_days,
+                                "session_time_start": session_time_start,
+                                "session_time_end": session_time_end,
+                                "weeks_ahead": 4
+                            }
+
+                            # Create goal with calendar config
+                            response = requests.post("http://localhost:8000/behaviour/goals/with-calendar", json=goal_data)
+                            response.raise_for_status()
+                            result = response.json()
+
+                            st.success(f"✅ {result['message']}")
+
+                            # Create calendar events
+                            if result.get("calendar_config", {}).get("ready_for_calendar_creation"):
+                                goal_id = result["goal_id"]
+
+                                cal_response = requests.post(
+                                    "http://localhost:8000/calendar/events/create-recurring-for-goal",
+                                    params={"goal_id": goal_id}
+                                )
+
+                                if cal_response.ok:
+                                    cal_result = cal_response.json()
+                                    st.success(f"📅 {cal_result['message']}")
+                                    st.balloons()
+                                else:
+                                    st.warning(f"Goal created but calendar events failed: {cal_response.text}")
+
+                        else:
+                            # Standard item creation (not goal with calendar)
+                            new_item = {
+                                "type": item_type,
+                                "title": title,
+                                "date": str(date_val),
+                                "status": status,
+                                "source": source,
+                                "priority": priority,
+                                "description": description if description else None,
+                                "start_time": start_time.strftime("%H:%M") if start_time else None,
+                                "location": location if location else None
+                            }
+
+                            created = client.create_item(new_item)
+                            st.success(f"✅ Created: {created['title']}")
+                            st.balloons()
 
                     except Exception as e:
                         st.error(f"Error creating item: {e}")
