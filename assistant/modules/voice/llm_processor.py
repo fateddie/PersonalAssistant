@@ -7,9 +7,9 @@ Uses OpenAI's function calling to extract structured data from natural language.
 import json
 from typing import Dict, List, Optional
 
-from .llm_config import client, is_configured, OPENAI_MODEL
-from .llm_functions import SYSTEM_PROMPT, FUNCTIONS
-from .llm_handlers import process_function_call
+from llm_config import client, is_configured, OPENAI_MODEL
+from llm_functions import SYSTEM_PROMPT, FUNCTIONS
+from llm_handlers import process_function_call
 
 
 # Re-export is_configured for backward compatibility

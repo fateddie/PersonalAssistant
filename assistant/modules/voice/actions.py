@@ -5,10 +5,10 @@ Execute confirmed actions (create goals, tasks, calendar events, email operation
 """
 
 from datetime import date, timedelta
-from .parsers import DAY_NAMES, parse_end_date
+from parsers import DAY_NAMES, parse_end_date
 
-# Import action functions from split modules
-from .calendar_actions import (
+# Import action functions from split modules (direct imports for Streamlit compatibility)
+from calendar_actions import (
     create_calendar_event,
     list_calendar_events,
     get_calendar_status,
@@ -16,7 +16,7 @@ from .calendar_actions import (
     hide_calendar_event,
     delete_calendar_event_action,
 )
-from .email_actions import (
+from email_actions import (
     get_gmail_client,
     search_emails,
     fetch_new_emails,
@@ -30,7 +30,7 @@ from .email_actions import (
     approve_event,
     reject_event,
 )
-from .summary_actions import (
+from summary_actions import (
     get_daily_summary,
     check_and_summarize_emails,
     get_all_daily_tasks,

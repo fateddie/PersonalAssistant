@@ -21,12 +21,12 @@ for path in [project_root, voice_dir]:
 
 from assistant_api.app.client import AssistantAPIClient
 
-# Import from refactored modules
-from .ui_styles import CUSTOM_CSS
-from .ui_components import check_api_health, render_item_card
-from .ui_forms import render_add_form
-from .conversation import process_chat_message
-from .actions import (
+# Import from refactored modules (direct imports since voice_dir is in sys.path)
+from ui_styles import CUSTOM_CSS
+from ui_components import check_api_health, render_item_card
+from ui_forms import render_add_form
+from conversation import process_chat_message
+from actions import (
     execute_pending_action,
     get_daily_summary,
     check_and_summarize_emails,
