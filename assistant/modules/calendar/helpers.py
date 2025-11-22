@@ -131,6 +131,7 @@ def format_time_for_calendar(time_str: str) -> Optional[str]:
         "7:30 AM" -> "07:30"
         "19:30" -> "19:30"
         "7pm" -> "19:00"
+        "7.30" -> "07:30"  (European format with dots)
 
     Args:
         time_str: Time in various formats (12-hour or 24-hour)
@@ -142,6 +143,9 @@ def format_time_for_calendar(time_str: str) -> Optional[str]:
         return None
 
     time_str = time_str.strip().lower()
+
+    # Support European format with dots (7.30 -> 7:30)
+    time_str = time_str.replace('.', ':')
 
     # Try 24-hour format first (HH:MM)
     if re.match(r'^\d{1,2}:\d{2}$', time_str):

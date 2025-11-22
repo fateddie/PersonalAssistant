@@ -37,6 +37,12 @@
 ### Rules 1-3: Module Architecture
 1. **Register() Contract** - All modules: `register(app, publish, subscribe)`
 2. **Keep Modules Small** - <200 lines, break into files
+   - **BEFORE editing**: run `wc -l <file>` to check current size
+   - **If file is >150 lines**: plan split BEFORE adding more code
+   - **If edit would push file >200 lines**: split first, then add
+   - **Split pattern**: one responsibility per file, use `__init__.py` for re-exports
+   - **ENFORCEMENT**: `python tools/check_architecture.py` checks this
+   - **SCRIPT**: `./scripts/check_file_sizes.sh` for quick check
 3. **Document Modules** - Docstrings: purpose, events, dependencies
 
 ### Rules 4-7: API & Performance

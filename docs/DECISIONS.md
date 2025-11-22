@@ -8,20 +8,20 @@
 
 ```yaml
 decision_index:
-  total_decisions: 8
+  total_decisions: 9
   critical_decisions: 3
-  implementation_decisions: 5
+  implementation_decisions: 6
   architectural_decisions: 2
 
   decision_types:
     security: 2
     performance: 2
-    architecture: 2
+    architecture: 3
     process: 2
 
   status_breakdown:
     approved: 6
-    implemented: 2
+    implemented: 3
     pending: 4
     rejected: 0
 ```
@@ -287,6 +287,59 @@ dependency_graph:
 - **ADR-002**: TypeScript Strict Mode → **Waiting for ADR-001**
 - **ADR-003**: Error Boundaries → **Waiting for ADR-002**
 - **ADR-006**: Bundle Optimization → **Waiting for ADR-001**
+
+### ADR-007: File Size Enforcement & Module Splitting
+**Date**: 2025-11-22
+**Status**: Implemented
+**Decision Type**: Architecture
+
+**Context**:
+ENGINEERING_GUIDELINES.md mandates 500-line file limits, but multiple files exceeded this:
+- `voice/actions.py`: 774 lines
+- `behavioural_intelligence/main.py`: 766 lines
+- `voice/main.py`: 667 lines
+- `core/supabase_memory.py`: 507 lines
+
+**Decision**:
+Split large files into focused modules while maintaining backward compatibility through re-exports.
+
+**Implementation**:
+
+1. **voice/actions.py** (774 → 198 lines):
+   - `calendar_actions.py` (189 lines) - Calendar CRUD operations
+   - `email_actions.py` (226 lines) - Gmail integration actions
+   - `summary_actions.py` (140 lines) - Daily summary generation
+
+2. **behavioural_intelligence/main.py** (766 → 48 lines):
+   - `bil_config.py` (40 lines) - Configuration constants
+   - `bil_models.py` (33 lines) - Pydantic models
+   - `bil_prompts.py` (35 lines) - LLM prompts
+   - `bil_goals.py` (329 lines) - Goal CRUD router
+   - `bil_analytics.py` (198 lines) - Analytics router
+   - `bil_handlers.py` (117 lines) - Event handlers
+
+3. **voice/main.py** (667 → 393 lines):
+   - `ui_styles.py` (40 lines) - CSS styling
+   - `ui_components.py` (186 lines) - Reusable UI components
+   - `ui_forms.py` (74 lines) - Form components
+
+4. **core/supabase_memory.py** (507 → 415 lines):
+   - `supabase_cli.py` (107 lines) - CLI entry point
+
+**Enforcement**:
+Created `scripts/check_file_sizes.sh` for CI integration:
+- ERROR threshold: 500 lines
+- WARNING threshold: 300 lines
+
+**Bug Fix**:
+Fixed relative import error: `from parsers` → `from .parsers`
+
+**Success Criteria**:
+- ✅ 0 files exceeding 500 lines
+- ✅ All module imports verified working
+- ✅ Backward compatibility maintained via re-exports
+
+---
 
 ### Future Decisions (Phase 2+)
 - Component refactoring strategy

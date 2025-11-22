@@ -2,6 +2,10 @@
 API Client for Streamlit
 =========================
 Simple HTTP client for Assistant API
+
+This client is intended for use by the Streamlit UI layer.
+It communicates with the Assistant API via HTTP, maintaining
+proper layer separation.
 """
 import requests
 from typing import List, Dict, Optional

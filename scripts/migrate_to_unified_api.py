@@ -159,6 +159,53 @@ def migrate_calendar_events():
     return migrated
 
 
+def classify_email_event(event_type: str, attendees: str, title: str) -> ItemType:
+    """
+    Classify email event into appropriate ItemType.
+
+    Logic:
+    - meeting/call → meeting (actual meetings)
+    - webinar → webinar (promotional/educational)
+    - deadline → deadline (due dates)
+    - appointment → appointment (personal: doctor, dentist, etc.)
+    - unknown → webinar (default for marketing emails)
+
+    Also uses sender-based classification for known newsletter domains.
+    """
+    event_type_lower = (event_type or "").lower()
+    attendees_lower = (attendees or "").lower()
+    title_lower = (title or "").lower()
+
+    # Known newsletter/promotional senders → webinar
+    newsletter_domains = [
+        "beehiiv.com", "substack.com", "mailchimp.com", "sendgrid.net",
+        "constantcontact.com", "hubspot.com", "sparkpost.com", "mailin.fr"
+    ]
+    if any(domain in attendees_lower for domain in newsletter_domains):
+        return ItemType.webinar
+
+    # Direct type mapping (preserve original classification)
+    if "meeting" in event_type_lower or "call" in event_type_lower:
+        return ItemType.meeting
+    elif "webinar" in event_type_lower:
+        return ItemType.webinar
+    elif "deadline" in event_type_lower:
+        return ItemType.deadline
+    elif "appointment" in event_type_lower:
+        return ItemType.appointment
+
+    # Title-based fallback for unclassified
+    if any(kw in title_lower for kw in ["register", "join us", "live event", "workshop"]):
+        return ItemType.webinar
+    if any(kw in title_lower for kw in ["deadline", "due", "expires", "last day"]):
+        return ItemType.deadline
+    if any(kw in title_lower for kw in ["doctor", "dentist", "appointment", "booking"]):
+        return ItemType.appointment
+
+    # Default: webinar (most promotional emails)
+    return ItemType.webinar
+
+
 def migrate_detected_events():
     """Migrate detected_events table (email events)"""
     print("\n📧 Migrating detected email events...")
@@ -175,12 +222,12 @@ def migrate_detected_events():
             # Parse datetime
             event_date, start_time_str = parse_datetime_to_date_time(event.date_time)
 
-            # Determine type
-            event_type_lower = (event.event_type or "").lower()
-            if "meeting" in event_type_lower or "call" in event_type_lower:
-                item_type = ItemType.meeting
-            else:
-                item_type = ItemType.appointment
+            # Classify event type with improved logic
+            item_type = classify_email_event(
+                event.event_type,
+                event.attendees,
+                event.title
+            )
 
             # Status based on approval and date
             if event.approval_status == "accepted":

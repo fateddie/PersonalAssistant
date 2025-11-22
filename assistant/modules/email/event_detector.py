@@ -32,8 +32,9 @@ EVENT_PATTERNS = {
         r"\b(let'?s meet|join us|invite you|meeting invite)\b",
     ],
     "webinar": [
-        r"\b(webinar|workshop|training|seminar|session|conference|presentation)\b",
-        r"\b(register for|join our|attend our)\b",
+        r"\b(webinar|workshop|training session|seminar|live event|conference|presentation)\b",
+        r"\b(register for|register now|join our live|attend our)\b",
+        r"\b(info session|virtual event)\b",
     ],
     "deadline": [
         r"\b(deadline|due|submit|send by|respond by|reply by)\b",
@@ -44,6 +45,13 @@ EVENT_PATTERNS = {
         r"\b(doctor|dentist|consultation|checkup)\b",
     ]
 }
+
+# Sender patterns that indicate newsletters (not events)
+NEWSLETTER_SENDER_PATTERNS = [
+    r"newsletter@", r"@mail\.", r"@email\.", r"noreply@",
+    r"milkroad", r"seekingalpha", r"investorplace", r"tradingdesk",
+    r"behindthemarkets", r"foundr", r"beehiiv",
+]
 
 # Meeting URL patterns
 URL_PATTERNS = {
@@ -69,16 +77,32 @@ TIME_PATTERNS = [
 ]
 
 
-def detect_event_type(text: str) -> Optional[str]:
+def is_newsletter_sender(sender: str) -> bool:
+    """Check if sender is a known newsletter source."""
+    if not sender:
+        return False
+    sender_lower = sender.lower()
+    for pattern in NEWSLETTER_SENDER_PATTERNS:
+        if re.search(pattern, sender_lower):
+            return True
+    return False
+
+
+def detect_event_type(text: str, sender: str = None) -> Optional[str]:
     """
     Detect the type of event from text.
 
     Args:
         text: Email subject + body text
+        sender: Email sender address (optional, used to filter newsletters)
 
     Returns:
         Event type string or None if no event detected
     """
+    # If sender is a known newsletter, skip event detection
+    if sender and is_newsletter_sender(sender):
+        return None
+
     text_lower = text.lower()
 
     # Score each event type
@@ -274,14 +298,15 @@ def detect_event_from_email(email_data: Dict) -> Optional[Dict]:
     """
     subject = email_data.get("subject", "")
     body = email_data.get("body_text", "")
+    from_email = email_data.get("from_email", "")
 
     # Combine subject and body for analysis
     full_text = f"{subject}\n\n{body}"
 
-    # Detect event type
-    event_type = detect_event_type(full_text)
+    # Detect event type (pass sender to filter out newsletters)
+    event_type = detect_event_type(full_text, sender=from_email)
     if not event_type:
-        return None  # No event detected
+        return None  # No event detected (or is a newsletter)
 
     logger.info(f"📅 Detected {event_type} in email: {subject[:50]}...")
 

@@ -1,13 +1,19 @@
 """
 AskSharon.ai Scheduler
 ======================
-Schedules timed events (morning check-in, evening reflection).
+Schedules timed events (morning check-in, evening reflection, email sync).
 """
 
 import schedule
 import time
 import threading
+import requests
+from datetime import datetime
 from assistant.core.orchestrator import publish
+
+
+# Track last sync time
+_last_email_sync = None
 
 
 def job_morning_checkin():
@@ -18,10 +24,40 @@ def job_evening_reflection():
     publish("evening_reflection", {"time": "21:00"})
 
 
+def job_email_sync():
+    """Periodic Gmail sync - fetches new emails and detects events"""
+    global _last_email_sync
+    try:
+        print(f"📧 Scheduled email sync starting...")
+        response = requests.get(
+            "http://localhost:8000/emails/detect-events?limit=50",
+            timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            detected = data.get("detected", 0)
+            _last_email_sync = datetime.now()
+            print(f"✅ Email sync complete: {detected} events detected")
+        else:
+            print(f"⚠️ Email sync failed: HTTP {response.status_code}")
+    except Exception as e:
+        print(f"⚠️ Email sync error: {e}")
+
+
+def get_last_sync_time():
+    """Get the last email sync time"""
+    return _last_email_sync
+
+
 def start_scheduler():
+    # Daily events
     schedule.every().day.at("07:30").do(job_morning_checkin)
     schedule.every().day.at("21:00").do(job_evening_reflection)
-    print("🕓 Scheduler started.")
+
+    # Email sync every 30 minutes
+    schedule.every(30).minutes.do(job_email_sync)
+
+    print("🕓 Scheduler started (email sync every 30 min)")
 
     def loop():
         while True:

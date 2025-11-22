@@ -18,6 +18,32 @@ Before planning or implementing any feature, the AI MUST read and respect:
 
 ## 2. Workflow: Plan → Implement → Self-review
 
+### Step 0 – Pre-Edit Checklist (BEFORE touching any file)
+
+Before editing ANY Python file, run these checks:
+
+```bash
+# 1. Check file size (Rule #2: <200 lines)
+wc -l <file_to_edit>
+
+# 2. If file is >150 lines, STOP and plan split first
+# 3. Run architecture checker to see current violations
+python tools/check_architecture.py
+```
+
+**If file is already >200 lines:**
+- DO NOT add more code to it
+- Split the file first, THEN make your changes
+- See `.cursorrules` Rule #2 for splitting guidance
+
+**If your edit would push file >200 lines:**
+- Split the file first
+- Make your changes to the appropriate new file
+
+This prevents file bloat BEFORE it happens.
+
+---
+
 ### Step A – Plan
 
 - **Do NOT write code yet.**
@@ -136,9 +162,31 @@ When in doubt, use the workflow. It takes 5 extra minutes and prevents hours of 
 
 ## 4. Enforcement
 
-- The architecture checker (`tools/check_architecture.py`) enforces layer boundaries automatically.
-- Pre-commit hooks can be enabled to block commits that violate architecture rules.
-- CI/CD can run the checker on every PR.
+### Automated Checks
+
+| Check | Tool | What it catches |
+|-------|------|-----------------|
+| Layer violations | `python tools/check_architecture.py` | UI importing core, cross-layer imports |
+| File size (Rule #2) | `python tools/check_architecture.py` | Files >200 lines |
+| File size (quick) | `./scripts/check_file_sizes.sh` | Files >200 lines |
+| Formatting | `black assistant/` | Code style |
+| Type hints | `mypy assistant/` | Missing types |
+| Tests | `pytest` | Regressions |
+
+### When to Run
+
+- **Before every edit**: `wc -l <file>` (check size)
+- **After every edit**: `python tools/check_architecture.py`
+- **Before commit**: All checks above
+
+### Pre-commit Hook (optional)
+
+```bash
+# .git/hooks/pre-commit
+#!/bin/bash
+python tools/check_architecture.py || exit 1
+./scripts/check_file_sizes.sh --strict || exit 1
+```
 
 But the AI's self-review is the first line of defense. **Use it.**
 

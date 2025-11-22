@@ -12,17 +12,19 @@ Features:
 - Action item extraction
 """
 
-import imaplib
-import email
-import os
-import json
-from datetime import datetime
-from email.header import decode_header
-from email.utils import parsedate_to_datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List
 from fastapi import APIRouter
-from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
+from sqlalchemy import text
+
+# Import from split modules
+from .database import (
+    engine,
+    unified_engine,
+    get_stored_emails,
+    update_email_summary,
+)
+from .gmail_fetcher import fetch_emails, GMAIL_FETCH_LIMIT
+from .classification import store_detected_event
 
 # Import AI service (supports HuggingFace + OpenAI)
 from .ai_service import (
@@ -34,418 +36,14 @@ from .ai_service import (
 )
 
 # Import event detector
-from .event_detector import detect_event_from_email, batch_detect_events
-
-# Load environment variables from config/.env
-from pathlib import Path
-config_dir = Path(__file__).parent.parent.parent.parent / "config" / ".env"
-load_dotenv(config_dir)
+from .event_detector import batch_detect_events
 
 router = APIRouter()
-
-# Database connection
-DB_PATH = os.getenv("DATABASE_URL", "sqlite:///assistant/data/memory.db")
-engine = create_engine(DB_PATH.replace("sqlite:///", "sqlite:///"))
-
-# Gmail configuration
-GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
-GMAIL_IMAP_SERVER = os.getenv("GMAIL_IMAP_SERVER", "imap.gmail.com")
-GMAIL_IMAP_PORT = int(os.getenv("GMAIL_IMAP_PORT", "993"))
-GMAIL_FETCH_LIMIT = int(os.getenv("GMAIL_FETCH_LIMIT", "100"))
 
 
 def register(app, publish, subscribe):
     """Register email module with the orchestrator"""
     app.include_router(router, prefix="/emails")
-
-
-def decode_email_header(header_value: Optional[str]) -> str:
-    """Decode email header (handles UTF-8 encoding)"""
-    if header_value is None:
-        return ""
-
-    decoded_parts = decode_header(header_value)
-    decoded_str = ""
-
-    for part, encoding in decoded_parts:
-        if isinstance(part, bytes):
-            decoded_str += part.decode(encoding or "utf-8", errors="ignore")
-        else:
-            decoded_str += str(part)
-
-    return decoded_str
-
-
-def extract_email_body(msg: email.message.Message) -> tuple[str, str]:
-    """Extract text and HTML body from email message"""
-    body_text = ""
-    body_html = ""
-
-    if msg.is_multipart():
-        for part in msg.walk():
-            content_type = part.get_content_type()
-            content_disposition = str(part.get("Content-Disposition", ""))
-
-            # Skip attachments
-            if "attachment" in content_disposition:
-                continue
-
-            try:
-                if content_type == "text/plain":
-                    body_text = part.get_payload(decode=True).decode("utf-8", errors="ignore")
-                elif content_type == "text/html":
-                    body_html = part.get_payload(decode=True).decode("utf-8", errors="ignore")
-            except Exception:
-                continue
-    else:
-        # Not multipart - just get the payload
-        content_type = msg.get_content_type()
-        try:
-            payload = msg.get_payload(decode=True)
-            if payload:
-                decoded_payload = payload.decode("utf-8", errors="ignore")
-                if content_type == "text/plain":
-                    body_text = decoded_payload
-                elif content_type == "text/html":
-                    body_html = decoded_payload
-        except Exception:
-            pass
-
-    return body_text, body_html
-
-
-def count_attachments(msg: email.message.Message) -> int:
-    """Count the number of attachments in email"""
-    count = 0
-    if msg.is_multipart():
-        for part in msg.walk():
-            content_disposition = str(part.get("Content-Disposition", ""))
-            if "attachment" in content_disposition:
-                count += 1
-    return count
-
-
-def parse_email_address(address: str) -> tuple[str, str]:
-    """Parse email address into name and email parts"""
-    if "<" in address and ">" in address:
-        # Format: "Name <email@example.com>"
-        name_part = address.split("<")[0].strip().strip('"')
-        email_part = address.split("<")[1].split(">")[0].strip()
-        return name_part, email_part
-    else:
-        # Just email address
-        return "", address.strip()
-
-
-def check_email_exists(email_id: str) -> bool:
-    """Check if email already exists in database"""
-    with engine.connect() as conn:
-        result = conn.execute(
-            text("SELECT COUNT(*) FROM emails WHERE email_id = :eid"), {"eid": email_id}
-        )
-        count = result.scalar()
-        return count > 0
-
-
-def store_email(email_data: Dict[str, Any]) -> bool:
-    """Store email in database (with deduplication)"""
-    try:
-        # Check if already exists
-        if check_email_exists(email_data["email_id"]):
-            return False  # Already stored
-
-        with engine.begin() as conn:
-            conn.execute(
-                text(
-                    """
-                    INSERT INTO emails (
-                        email_id, from_name, from_email, to_email, subject,
-                        date_received, body_text, body_html, attachments_count,
-                        priority, is_read, folder
-                    ) VALUES (
-                        :email_id, :from_name, :from_email, :to_email, :subject,
-                        :date_received, :body_text, :body_html, :attachments_count,
-                        :priority, :is_read, :folder
-                    )
-                """
-                ),
-                {
-                    "email_id": email_data["email_id"],
-                    "from_name": email_data["from_name"],
-                    "from_email": email_data["from_email"],
-                    "to_email": email_data["to_email"],
-                    "subject": email_data["subject"],
-                    "date_received": email_data["date_received"],
-                    "body_text": email_data["body_text"],
-                    "body_html": email_data["body_html"],
-                    "attachments_count": email_data["attachments_count"],
-                    "priority": email_data["priority"],
-                    "is_read": email_data["is_read"],
-                    "folder": email_data["folder"],
-                },
-            )
-        return True  # Newly stored
-    except Exception as e:
-        print(f"❌ Error storing email: {e}")
-        return False
-
-
-def update_email_summary(email_id: str, summary: str, action_items: List[str]) -> bool:
-    """Update email summary and action items in database"""
-    try:
-        with engine.begin() as conn:
-            conn.execute(
-                text(
-                    """
-                    UPDATE emails
-                    SET summary = :summary, action_items = :action_items
-                    WHERE email_id = :email_id
-                """
-                ),
-                {
-                    "email_id": email_id,
-                    "summary": summary,
-                    "action_items": json.dumps(action_items),  # Store as JSON
-                },
-            )
-        return True
-    except Exception as e:
-        print(f"❌ Error updating email summary: {e}")
-        return False
-
-
-def calculate_priority(email_data: Dict[str, Any]) -> str:
-    """
-    Calculate email priority based on multiple factors.
-
-    Scoring:
-    - Sender importance (0-40 points)
-    - Subject keywords (0-30 points)
-    - Action words (0-20 points)
-    - Recency (0-10 points)
-
-    Categories:
-    - HIGH: 50+ points
-    - MEDIUM: 25-49 points
-    - LOW: 0-24 points
-    """
-    score = 0
-    subject_lower = email_data["subject"].lower()
-    body_lower = email_data["body_text"].lower()
-
-    # Sender importance (basic check - can be enhanced with contact list)
-    from_email = email_data["from_email"].lower()
-    if any(domain in from_email for domain in ["@work.", "@company.", ".edu", ".gov"]):
-        score += 20
-
-    # Subject keywords (urgent indicators)
-    urgent_keywords = ["urgent", "asap", "deadline", "important", "critical", "action required"]
-    if any(keyword in subject_lower for keyword in urgent_keywords):
-        score += 30
-
-    # Action words
-    action_words = ["review", "approve", "sign", "respond", "confirm", "verify"]
-    if any(word in subject_lower or word in body_lower[:500] for word in action_words):
-        score += 20
-
-    # Recency (emails from today get bonus)
-    try:
-        email_date = datetime.fromisoformat(email_data["date_received"].replace("Z", "+00:00"))
-        age_hours = (datetime.now() - email_date.replace(tzinfo=None)).total_seconds() / 3600
-        if age_hours < 24:
-            score += 10
-        elif age_hours < 72:
-            score += 5
-    except:
-        pass
-
-    # Categorize
-    if score >= 50:
-        return "HIGH"
-    elif score >= 25:
-        return "MEDIUM"
-    else:
-        return "LOW"
-
-
-def connect_to_gmail() -> Optional[imaplib.IMAP4_SSL]:
-    """Connect to Gmail IMAP server"""
-    try:
-        mail = imaplib.IMAP4_SSL(GMAIL_IMAP_SERVER, GMAIL_IMAP_PORT)
-        mail.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)
-        return mail
-    except Exception as e:
-        print(f"❌ Gmail connection error: {e}")
-        return None
-
-
-def fetch_emails(limit: int = GMAIL_FETCH_LIMIT) -> List[Dict[str, Any]]:
-    """
-    Fetch emails from Gmail IMAP.
-
-    Args:
-        limit: Maximum number of emails to fetch
-
-    Returns:
-        List of parsed email dictionaries
-    """
-    # Check if Gmail is configured
-    if not GMAIL_EMAIL or GMAIL_EMAIL.startswith("your-"):
-        print("⚠️  Gmail not configured. See docs/GMAIL_SETUP.md")
-        return []
-
-    # Connect to Gmail
-    mail = connect_to_gmail()
-    if not mail:
-        return []
-
-    emails = []
-
-    try:
-        # Select INBOX
-        status, _ = mail.select("INBOX")
-        if status != "OK":
-            print("❌ Failed to select INBOX")
-            return emails
-
-        # Search for all emails
-        status, message_ids = mail.search(None, "ALL")
-        if status != "OK":
-            print("❌ Search failed")
-            return emails
-
-        # Get email IDs (latest first)
-        email_ids = message_ids[0].split()
-        email_ids = email_ids[-limit:]  # Get last N emails
-        email_ids.reverse()  # Most recent first
-
-        print(f"📧 Fetching {len(email_ids)} emails from Gmail...")
-
-        # Fetch each email
-        for email_id in email_ids:
-            try:
-                status, msg_data = mail.fetch(email_id, "(RFC822)")
-                if status != "OK":
-                    continue
-
-                # Parse email
-                email_body = msg_data[0][1]
-                msg = email.message_from_bytes(email_body)
-
-                # Extract fields
-                subject = decode_email_header(msg.get("Subject", "(No subject)"))
-                from_header = decode_email_header(msg.get("From", ""))
-                to_header = decode_email_header(msg.get("To", ""))
-                date_header = msg.get("Date", "")
-                message_id = msg.get("Message-ID", f"local-{email_id.decode()}")
-
-                # Parse addresses
-                from_name, from_email_addr = parse_email_address(from_header)
-
-                # Parse date
-                try:
-                    date_obj = parsedate_to_datetime(date_header)
-                    date_str = date_obj.isoformat()
-                except:
-                    date_str = datetime.now().isoformat()
-
-                # Extract body
-                body_text, body_html = extract_email_body(msg)
-
-                # Count attachments
-                attachments = count_attachments(msg)
-
-                # Build email dict
-                email_data = {
-                    "email_id": message_id,
-                    "from_name": from_name,
-                    "from_email": from_email_addr,
-                    "to_email": to_header,
-                    "subject": subject,
-                    "date_received": date_str,
-                    "body_text": body_text[:5000],  # Limit body size
-                    "body_html": body_html[:10000],
-                    "attachments_count": attachments,
-                    "is_read": False,
-                    "folder": "INBOX",
-                }
-
-                # Calculate priority
-                email_data["priority"] = calculate_priority(email_data)
-
-                # Store in database (skip if duplicate)
-                if store_email(email_data):
-                    emails.append(email_data)
-
-            except Exception as e:
-                print(f"⚠️  Error parsing email {email_id}: {e}")
-                continue
-
-        print(f"✓ Fetched {len(emails)} new emails")
-
-    except Exception as e:
-        print(f"❌ Error fetching emails: {e}")
-    finally:
-        try:
-            mail.logout()
-        except:
-            pass
-
-    return emails
-
-
-def get_stored_emails(
-    limit: int = 100, include_body: bool = False, include_summary: bool = True
-) -> List[Dict[str, Any]]:
-    """Get emails from database"""
-    fields = """
-        email_id, from_name, from_email, subject, date_received,
-        priority, attachments_count, is_read, summary, action_items
-    """
-    if include_body:
-        fields += ", body_text"
-
-    with engine.connect() as conn:
-        result = conn.execute(
-            text(
-                f"""
-                SELECT {fields}
-                FROM emails
-                ORDER BY date_received DESC
-                LIMIT :limit
-            """
-            ),
-            {"limit": limit},
-        )
-
-        emails = []
-        for row in result:
-            email_dict = {
-                "email_id": row[0],
-                "from_name": row[1],
-                "from_email": row[2],
-                "subject": row[3],
-                "date_received": row[4],
-                "priority": row[5],
-                "attachments_count": row[6],
-                "is_read": row[7],
-            }
-
-            if include_summary:
-                email_dict["summary"] = row[8]
-                # Parse action_items from JSON
-                try:
-                    email_dict["action_items"] = json.loads(row[9]) if row[9] else []
-                except:
-                    email_dict["action_items"] = []
-
-            if include_body:
-                email_dict["body_text"] = row[10] if include_body else None
-
-            emails.append(email_dict)
-
-        return emails
 
 
 @router.get("/summarise")
@@ -475,8 +73,8 @@ def summarise_emails(fetch_new: bool = False, limit: int = 10, generate_ai_summa
 
     # Count by priority
     priority_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
-    for email in emails:
-        priority = email.get("priority", "MEDIUM")
+    for email_item in emails:
+        priority = email_item.get("priority", "MEDIUM")
         priority_counts[priority] = priority_counts.get(priority, 0) + 1
 
     response = {"total": len(emails), "by_priority": priority_counts, "emails": emails}
@@ -593,14 +191,14 @@ def detect_events_endpoint(limit: int = 50):
 
 
 @router.get("/events")
-def get_detected_events(status: str = "pending", limit: int = 20, future_only: bool = True):
+def get_detected_events(status: str = "all", limit: int = 20, future_only: bool = True):
     """
-    Get detected events from database.
+    Get detected events from unified assistant_items database.
 
     Query params:
-        status: Filter by approval_status (pending, approved, rejected, all)
+        status: Filter by status (upcoming, in_progress, done, all)
         limit: Maximum number of events to return
-        future_only: If True, only return events with date_time >= today (default: True)
+        future_only: If True, only return events with date >= today (default: True)
 
     Returns:
         {
@@ -608,28 +206,26 @@ def get_detected_events(status: str = "pending", limit: int = 20, future_only: b
             "total": int
         }
     """
-    filters = []
+    filters = ["source = 'gmail'"]  # Only Gmail events
 
     # Status filter
     if status != "all":
-        filters.append(f"approval_status = '{status}'")
+        filters.append(f"status = '{status}'")
 
     # Future events only filter
     if future_only:
-        filters.append("date_time >= datetime('now')")
+        filters.append("date >= date('now')")
 
-    where_clause = ""
-    if filters:
-        where_clause = "WHERE " + " AND ".join(filters)
+    where_clause = "WHERE " + " AND ".join(filters)
 
-    with engine.connect() as conn:
+    with unified_engine.connect() as conn:
         result = conn.execute(
             text(f"""
-                SELECT id, email_id, event_type, title, date_time,
-                       location, url, attendees, confidence, approval_status
-                FROM detected_events
+                SELECT id, type, title, date, start_time,
+                       location, gmail_thread_url, participants, status
+                FROM assistant_items
                 {where_clause}
-                ORDER BY date_time ASC
+                ORDER BY date ASC
                 LIMIT :limit
             """),
             {"limit": limit}
@@ -639,27 +235,26 @@ def get_detected_events(status: str = "pending", limit: int = 20, future_only: b
         for row in result:
             events.append({
                 "id": row[0],
-                "email_id": row[1],
-                "event_type": row[2],
-                "title": row[3],
-                "date_time": row[4],
+                "event_type": row[1],
+                "title": row[2],
+                "date": str(row[3]) if row[3] else None,
+                "start_time": str(row[4]) if row[4] else None,
                 "location": row[5],
                 "url": row[6],
                 "attendees": row[7],
-                "confidence": row[8],
-                "approval_status": row[9]
+                "status": row[8]
             })
 
     return {"events": events, "total": len(events)}
 
 
 @router.post("/events/{event_id}/approve")
-def approve_event(event_id: int):
+def approve_event(event_id: str):
     """
-    Approve a detected event (marks as approved for calendar creation).
+    Mark event as in_progress (approved for action).
 
     Args:
-        event_id: ID of the detected event
+        event_id: ID of the assistant_item
 
     Returns:
         {
@@ -668,11 +263,11 @@ def approve_event(event_id: int):
         }
     """
     try:
-        with engine.begin() as conn:
+        with unified_engine.begin() as conn:
             conn.execute(
                 text("""
-                    UPDATE detected_events
-                    SET approval_status = 'approved'
+                    UPDATE assistant_items
+                    SET status = 'in_progress'
                     WHERE id = :event_id
                 """),
                 {"event_id": event_id}
@@ -680,7 +275,7 @@ def approve_event(event_id: int):
 
         return {
             "status": "approved",
-            "message": f"Event {event_id} approved. Ready for calendar creation."
+            "message": f"Event {event_id} marked as in_progress."
         }
 
     except Exception as e:
@@ -689,12 +284,12 @@ def approve_event(event_id: int):
 
 
 @router.post("/events/{event_id}/reject")
-def reject_event(event_id: int):
+def reject_event(event_id: str):
     """
-    Reject a detected event (marks as rejected, won't create calendar entry).
+    Mark event as done (rejected/dismissed).
 
     Args:
-        event_id: ID of the detected event
+        event_id: ID of the assistant_item
 
     Returns:
         {
@@ -703,11 +298,11 @@ def reject_event(event_id: int):
         }
     """
     try:
-        with engine.begin() as conn:
+        with unified_engine.begin() as conn:
             conn.execute(
                 text("""
-                    UPDATE detected_events
-                    SET approval_status = 'rejected'
+                    UPDATE assistant_items
+                    SET status = 'done'
                     WHERE id = :event_id
                 """),
                 {"event_id": event_id}
@@ -715,7 +310,7 @@ def reject_event(event_id: int):
 
         return {
             "status": "rejected",
-            "message": f"Event {event_id} rejected"
+            "message": f"Event {event_id} marked as done"
         }
 
     except Exception as e:
@@ -740,35 +335,3 @@ def get_ai_status():
         "provider_status": status,
         "message": f"Active provider: {status['active_provider']}"
     }
-
-
-def store_detected_event(event_data: Dict) -> bool:
-    """Store detected event in database"""
-    try:
-        with engine.begin() as conn:
-            conn.execute(
-                text("""
-                    INSERT INTO detected_events (
-                        email_id, event_type, title, date_time,
-                        location, url, attendees, confidence
-                    ) VALUES (
-                        :email_id, :event_type, :title, :date_time,
-                        :location, :url, :attendees, :confidence
-                    )
-                """),
-                {
-                    "email_id": event_data.get("email_id"),
-                    "event_type": event_data.get("event_type"),
-                    "title": event_data.get("title"),
-                    "date_time": event_data.get("date_time"),
-                    "location": event_data.get("location"),
-                    "url": event_data.get("url"),
-                    "attendees": event_data.get("attendees"),
-                    "confidence": event_data.get("confidence", "medium")
-                }
-            )
-        return True
-
-    except Exception as e:
-        print(f"❌ Error storing detected event: {e}")
-        return False

@@ -20,6 +20,11 @@ import ast
 import os
 import sys
 from pathlib import Path
+from typing import List, Dict
+
+# Configuration
+MAX_FILE_LINES = 500  # Rule #2: Hard limit - must split
+WARN_FILE_LINES = 300  # Soft warning - consider splitting
 
 # Forbidden import rules:
 #   (folder_pattern, import_prefix_that_is_not_allowed, description)
@@ -114,9 +119,9 @@ def find_violations(root: str = "."):
     return violations
 
 
-def group_violations(violations):
+def group_violations(violations: List[Dict]) -> Dict[str, List[Dict]]:
     """Group violations by pattern for easier analysis."""
-    groups = {}
+    groups: Dict[str, List[Dict]] = {}
 
     for v in violations:
         key = f"{v['description']}"
@@ -125,6 +130,64 @@ def group_violations(violations):
         groups[key].append(v)
 
     return groups
+
+
+def check_file_sizes(root: str = ".") -> List[Dict]:
+    """
+    Check Python files for size violations (Rule #2: <200 lines).
+
+    Returns list of violations with file path and line count.
+    """
+    violations = []
+    root_path = Path(root).resolve()
+
+    # Only check assistant/ directory
+    assistant_dir = root_path / "assistant"
+    if not assistant_dir.exists():
+        return violations
+
+    for dirpath, _, filenames in os.walk(assistant_dir):
+        for filename in filenames:
+            if not filename.endswith(".py"):
+                continue
+
+            # Skip __init__.py files (typically small)
+            if filename == "__init__.py":
+                continue
+
+            filepath = Path(dirpath) / filename
+            relpath = filepath.relative_to(root_path)
+
+            # Skip virtual environments
+            if "venv" in str(relpath) or ".venv" in str(relpath):
+                continue
+
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    line_count = sum(1 for _ in f)
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            if line_count > MAX_FILE_LINES:
+                violations.append({
+                    "file": str(relpath),
+                    "lines": line_count,
+                    "limit": MAX_FILE_LINES,
+                    "excess": line_count - MAX_FILE_LINES,
+                    "severity": "error"
+                })
+            elif line_count > WARN_FILE_LINES:
+                violations.append({
+                    "file": str(relpath),
+                    "lines": line_count,
+                    "limit": MAX_FILE_LINES,
+                    "excess": 0,
+                    "severity": "warning"
+                })
+
+    # Sort by line count descending
+    violations.sort(key=lambda x: x["lines"], reverse=True)
+    return violations
 
 
 def warn_if_no_ui_tests(root: str = "."):
@@ -183,13 +246,16 @@ def warn_if_no_ui_tests(root: str = "."):
 if __name__ == "__main__":
     print("🔍 Scanning codebase for architecture violations...\n")
 
-    violations = find_violations(".")
+    has_errors = False
 
-    if violations:
-        print(f"❌ ARCHITECTURE VIOLATIONS DETECTED: {len(violations)} total\n")
+    # Check import violations
+    import_violations = find_violations(".")
+
+    if import_violations:
+        print(f"❌ IMPORT VIOLATIONS DETECTED: {len(import_violations)} total\n")
 
         # Group violations by pattern
-        grouped = group_violations(violations)
+        grouped = group_violations(import_violations)
 
         for description, items in grouped.items():
             print(f"📋 {description} ({len(items)} violations):")
@@ -198,10 +264,31 @@ if __name__ == "__main__":
                 print(f"     imports '{item['module']}'")
             print()
 
+        has_errors = True
+
+    # Check file size violations (Rule #2)
+    size_violations = check_file_sizes(".")
+    errors = [v for v in size_violations if v["severity"] == "error"]
+    warnings = [v for v in size_violations if v["severity"] == "warning"]
+
+    if errors:
+        print(f"❌ FILE SIZE VIOLATIONS (Rule #2: <{MAX_FILE_LINES} lines): {len(errors)} files\n")
+        for v in errors:
+            print(f"   - {v['file']}: {v['lines']} lines (+{v['excess']} over limit)")
+        print()
+        has_errors = True
+
+    if warnings:
+        print(f"⚠️  FILE SIZE WARNINGS (approaching {MAX_FILE_LINES} line limit): {len(warnings)} files\n")
+        for v in warnings:
+            print(f"   - {v['file']}: {v['lines']} lines (consider splitting soon)")
+        print()
+
+    if has_errors:
         print("💡 Tip: These violations are documented patterns to avoid.")
         print("   See docs/ENGINEERING_GUIDELINES.md for architecture rules.")
-        print("   See docs/FUTURE_REFACTOR.md for migration plan.\n")
-
+        print("   See docs/FUTURE_REFACTOR.md for migration plan.")
+        print("   Rule #2: Keep modules <200 lines, break into files.\n")
         sys.exit(1)
 
     # Soft UI test reminder (does not change exit code)

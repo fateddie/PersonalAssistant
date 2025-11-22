@@ -2,22 +2,50 @@
 Voice & Chat UI (Streamlit) - API Version
 ==========================================
 Clean Streamlit UI using unified Assistant API
+With full conversational AI support
 """
 
 import streamlit as st
+from streamlit.runtime.scriptrunner import RerunException
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # Add paths for imports
-project_root = Path(__file__).parent.parent.parent
-assistant_root = Path(__file__).parent.parent.parent / "assistant"
+project_root = Path(__file__).parent.parent.parent.parent  # asksharon_ai_blueprint
+voice_dir = Path(__file__).parent  # voice module directory
 
-for path in [project_root, assistant_root]:
+for path in [project_root, voice_dir]:
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from core.api_client import AssistantAPIClient
+from assistant_api.app.client import AssistantAPIClient
+
+# Import from refactored modules
+from .ui_styles import CUSTOM_CSS
+from .ui_components import check_api_health, render_item_card
+from .ui_forms import render_add_form
+from .conversation import process_chat_message
+from .actions import (
+    execute_pending_action,
+    get_daily_summary,
+    check_and_summarize_emails,
+    get_all_daily_tasks,
+    # Email actions
+    search_emails,
+    fetch_new_emails,
+    mark_email_read,
+    mark_email_unread,
+    star_email,
+    detect_email_events,
+    list_pending_events,
+    approve_event,
+    reject_event,
+    # Calendar actions
+    list_calendar_events,
+    get_calendar_status,
+    check_calendar_conflicts,
+)
 
 # Initialize API client
 API_URL = "http://localhost:8002"
@@ -31,482 +59,334 @@ st.set_page_config(
 )
 
 # Custom CSS
-st.markdown("""
-<style>
-    .item-card {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border: 1px solid #e0e0e0;
-        margin-bottom: 0.5rem;
-        background: white;
-    }
-    .item-title {
-        font-weight: 600;
-        font-size: 1.1rem;
-        margin-bottom: 0.25rem;
-    }
-    .item-meta {
-        color: #666;
-        font-size: 0.9rem;
-    }
-    .badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.25rem;
-        font-size: 0.8rem;
-        font-weight: 500;
-        margin-right: 0.5rem;
-    }
-    .badge-appointment { background: #e3f2fd; color: #1976d2; }
-    .badge-meeting { background: #f3e5f5; color: #7b1fa2; }
-    .badge-task { background: #fff3e0; color: #f57c00; }
-    .badge-goal { background: #e8f5e9; color: #388e3c; }
-    .badge-upcoming { background: #e0f2f1; color: #00897b; }
-    .badge-in_progress { background: #fff9c4; color: #f57f17; }
-    .badge-done { background: #c8e6c9; color: #2e7d32; }
-    .badge-high { background: #ffebee; color: #c62828; }
-    .badge-med { background: #fff3e0; color: #ef6c00; }
-    .badge-low { background: #f1f8e9; color: #689f38; }
-</style>
-""", unsafe_allow_html=True)
-
-
-def check_api_health():
-    """Check if API is available"""
-    try:
-        health = client.health_check()
-        return health['status'] == 'ok'
-    except:
-        return False
-
-
-def render_item_card(item, key_prefix=""):
-    """Render a single item card"""
-    type_emoji = {
-        "appointment": "📅",
-        "meeting": "👥",
-        "task": "✅",
-        "goal": "🎯"
-    }
-
-    with st.container():
-        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-
-        with col1:
-            # Title (clickable if has URL)
-            title = item['title']
-            if item.get('gmail_thread_url'):
-                st.markdown(f"**{type_emoji.get(item['type'], '📄')} [{title}]({item['gmail_thread_url']})**")
-            elif item.get('calendar_event_url'):
-                st.markdown(f"**{type_emoji.get(item['type'], '📄')} [{title}]({item['calendar_event_url']})**")
-            else:
-                st.markdown(f"**{type_emoji.get(item['type'], '📄')} {title}**")
-
-            # Meta info
-            meta_parts = []
-            if item.get('start_time'):
-                meta_parts.append(f"🕐 {item['start_time']}")
-            if item.get('location'):
-                meta_parts.append(f"📍 {item['location']}")
-            if item.get('participants'):
-                meta_parts.append(f"👤 {len(item['participants'])} participants")
-
-            if meta_parts:
-                st.caption(" • ".join(meta_parts))
-
-            if item.get('description'):
-                st.caption(item['description'])
-
-        with col2:
-            # Type and status badges
-            st.markdown(
-                f'<span class="badge badge-{item["type"]}">{item["type"]}</span>'
-                f'<span class="badge badge-{item["status"]}">{item["status"]}</span>',
-                unsafe_allow_html=True
-            )
-            if item.get('priority'):
-                st.markdown(
-                    f'<span class="badge badge-{item["priority"]}">{item["priority"]}</span>',
-                    unsafe_allow_html=True
-                )
-
-        with col3:
-            # Edit button
-            if st.button("✏️ Edit", key=f"{key_prefix}_edit_{item['id']}"):
-                st.session_state[f"editing_{item['id']}"] = True
-                st.rerun()
-
-        with col4:
-            # Delete button
-            if st.button("🗑️ Delete", key=f"{key_prefix}_delete_{item['id']}"):
-                try:
-                    client.delete_item(item['id'])
-                    st.success(f"Deleted: {item['title']}")
-                    st.rerun()
-                except Exception as e:
-                    if "RerunData" not in str(type(e)):
-                        st.error(f"Error deleting: {e}")
-
-        # Edit form (shown if editing)
-        if st.session_state.get(f"editing_{item['id']}", False):
-            with st.form(key=f"{key_prefix}_form_{item['id']}"):
-                st.subheader("Edit Item")
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    new_title = st.text_input("Title", value=item['title'])
-                    new_status = st.selectbox(
-                        "Status",
-                        ["upcoming", "in_progress", "done", "overdue"],
-                        index=["upcoming", "in_progress", "done", "overdue"].index(item['status'])
-                    )
-
-                with col2:
-                    new_date = st.date_input("Date", value=datetime.fromisoformat(str(item['date'])))
-                    new_priority = st.selectbox(
-                        "Priority",
-                        [None, "low", "med", "high"],
-                        index=[None, "low", "med", "high"].index(item.get('priority'))
-                    )
-
-                new_description = st.text_area("Description", value=item.get('description') or "")
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.form_submit_button("💾 Save"):
-                        updates = {
-                            "title": new_title,
-                            "status": new_status,
-                            "date": str(new_date),
-                            "description": new_description if new_description else None,
-                            "priority": new_priority
-                        }
-                        client.update_item(item['id'], updates)
-                        st.session_state[f"editing_{item['id']}"] = False
-                        st.success("Updated!")
-                        st.rerun()
-
-                with col2:
-                    if st.form_submit_button("❌ Cancel"):
-                        st.session_state[f"editing_{item['id']}"] = False
-                        st.rerun()
-
-        st.divider()
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
 def main():
-    """Main Streamlit app"""
+    """Main Streamlit app - Chat-first design with full conversational AI"""
 
-    # Header
-    st.title("🤖 AskSharon.ai")
+    # Show notifications
+    if 'last_deleted' in st.session_state:
+        st.toast(f"✅ Deleted: {st.session_state['last_deleted']}")
+        del st.session_state['last_deleted']
+    if 'last_updated' in st.session_state:
+        st.toast(f"✅ Updated: {st.session_state['last_updated']}")
+        del st.session_state['last_updated']
 
     # Check API health
-    if not check_api_health():
+    if not check_api_health(client):
         st.error(f"⚠️ Cannot connect to API at {API_URL}")
         st.info("Start API with: `uvicorn assistant_api.app.main:app --port 8002 --reload`")
         return
 
-    # Sidebar
-    with st.sidebar:
-        st.header("📊 Dashboard")
+    # Initialize session state
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    if 'current_view' not in st.session_state:
+        st.session_state.current_view = "today"
+    if 'awaiting_confirmation' not in st.session_state:
+        st.session_state.awaiting_confirmation = False
+    if 'pending_action' not in st.session_state:
+        st.session_state.pending_action = None
+    if 'pending_data' not in st.session_state:
+        st.session_state.pending_data = None
+    if 'awaiting_info' not in st.session_state:
+        st.session_state.awaiting_info = False
+    if 'awaiting_info_type' not in st.session_state:
+        st.session_state.awaiting_info_type = None
+    # Guided goal creation flow
+    if 'goal_creation_stage' not in st.session_state:
+        st.session_state.goal_creation_stage = None
+    if 'pending_goal' not in st.session_state:
+        st.session_state.pending_goal = {}
 
-        # Get stats
+    # ===== HEADER =====
+    st.title("🤖 AskSharon.ai")
+
+    # ===== CHAT INPUT (Primary Interface) =====
+    placeholder_text = _get_chat_placeholder()
+    chat_input = st.chat_input(placeholder_text)
+
+    if chat_input:
+        _handle_chat_input(chat_input)
+
+    # ===== DISPLAY RECENT CHAT =====
+    if st.session_state.messages:
+        for msg in st.session_state.messages[-6:]:  # Show last 6 messages
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+    st.divider()
+
+    # ===== QUICK ACTIONS =====
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("📅 Today", use_container_width=True):
+            st.session_state.current_view = "today"
+    with col2:
+        if st.button("🎯 Goals", use_container_width=True):
+            st.session_state.current_view = "goals"
+    with col3:
+        if st.button("📆 Upcoming", use_container_width=True):
+            st.session_state.current_view = "upcoming"
+    with col4:
+        if st.button("➕ Add New", use_container_width=True):
+            st.session_state.current_view = "add_item"
+            st.session_state.add_item_type = "task"
+
+    st.divider()
+
+    # ===== CONTENT AREA (based on current view) =====
+    _render_content_area()
+
+    # ===== SIDEBAR (Stats only) =====
+    with st.sidebar:
+        st.header("📊 Quick Stats")
         try:
             stats = client.get_stats()
-
-            st.subheader("By Type")
             for item_type, count in stats['count_by_type'].items():
                 type_name = item_type.replace("ItemType.", "")
                 st.metric(type_name.title(), count)
+        except Exception:
+            pass
 
-            st.divider()
 
-            st.subheader("Today")
-            st.metric("Total Today", stats['today']['total'])
-            for item_type, count in stats['today'].get('by_type', {}).items():
-                type_name = item_type.replace("ItemType.", "")
-                st.caption(f"{type_name}: {count}")
+def _get_chat_placeholder() -> str:
+    """Get appropriate placeholder text for chat input"""
+    if st.session_state.awaiting_confirmation:
+        return "Type 'yes' to confirm or 'no' to cancel..."
+    elif st.session_state.goal_creation_stage:
+        stage_hints = {
+            'ask_calendar': "yes/no",
+            'get_time': "e.g., 'weekdays 7:30-9am'",
+            'get_name': "Enter goal name...",
+            'get_category': "educational, fitness, work, personal, creative, other"
+        }
+        return stage_hints.get(st.session_state.goal_creation_stage, "Continue...")
+    elif st.session_state.awaiting_info:
+        return f"Enter the {st.session_state.awaiting_info_type.replace('_', ' ')}..."
+    else:
+        return "Ask Sharon anything... (e.g., 'create goal' or 'what's on today?')"
 
-        except Exception as e:
-            st.error(f"Error loading stats: {e}")
 
-        st.divider()
+def _handle_chat_input(chat_input: str):
+    """Process chat input and update state"""
+    # Add user message to history
+    st.session_state.messages.append({"role": "user", "content": chat_input})
 
-        # Filters
-        st.header("🔍 Filters")
-        filter_type = st.multiselect(
-            "Type",
-            ["appointment", "meeting", "task", "goal"],
-            default=None
-        )
+    # Process message through conversational AI (pass history for LLM context)
+    result = process_chat_message(chat_input, st.session_state.messages)
 
-        filter_status = st.selectbox(
-            "Status",
-            [None, "upcoming", "in_progress", "done", "overdue"]
-        )
-
-        filter_source = st.selectbox(
-            "Source",
-            [None, "manual", "gmail", "calendar"]
-        )
-
-        st.divider()
-
-        # Add new item
-        if st.button("➕ Add New Item"):
-            st.session_state['show_add_form'] = True
-
-    # Main content area
-    tabs = st.tabs(["📅 Today", "📆 Upcoming", "✅ All Items", "➕ Add New"])
-
-    # Tab 1: Today
-    with tabs[0]:
-        st.header("Today's Items")
-        today = date.today()
-
-        try:
-            result = client.list_items(
-                date_from=today,
-                date_to=today,
-                status="upcoming" if not filter_status else filter_status,
-                type=filter_type if filter_type else None,
-                limit=100
+    # Handle confirmation responses
+    if result['action'] == 'confirm_yes':
+        # Execute the pending action
+        if st.session_state.pending_action and st.session_state.pending_data:
+            response = execute_pending_action(
+                client,
+                st.session_state.pending_data,
+                st.session_state.pending_action
             )
+        else:
+            response = "Nothing to confirm."
+        # Clear all confirmation and flow state
+        st.session_state.awaiting_confirmation = False
+        st.session_state.pending_action = None
+        st.session_state.pending_data = None
+        st.session_state.goal_creation_stage = None
+        st.session_state.pending_goal = {}
+        st.session_state.current_view = "today"
 
+    elif result['action'] == 'confirm_no':
+        response = "Okay, cancelled. What else can I help you with?"
+        st.session_state.awaiting_confirmation = False
+        st.session_state.pending_action = None
+        st.session_state.pending_data = None
+        st.session_state.goal_creation_stage = None
+        st.session_state.pending_goal = {}
+
+    elif result['action'] == 'show':
+        st.session_state.current_view = result['view']
+        response = result['response_text']
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'daily_summary':
+        response = get_all_daily_tasks(client)
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'check_email':
+        response = check_and_summarize_emails()
+        st.session_state.awaiting_confirmation = False
+
+    # EMAIL ACTIONS
+    elif result['action'] == 'search_emails':
+        response = search_emails(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'fetch_new_emails':
+        response = fetch_new_emails(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'mark_email_read':
+        response = mark_email_read(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'mark_email_unread':
+        response = mark_email_unread(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'star_email':
+        response = star_email(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'detect_email_events':
+        response = detect_email_events(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'list_pending_events':
+        response = list_pending_events(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'approve_event':
+        response = approve_event(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'reject_event':
+        response = reject_event(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    # CALENDAR ACTIONS
+    elif result['action'] == 'list_calendar_events':
+        response = list_calendar_events(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'calendar_status':
+        response = get_calendar_status()
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] == 'check_calendar_conflicts':
+        response = check_calendar_conflicts(result['pending_data'])
+        st.session_state.awaiting_confirmation = False
+
+    elif result['action'] in ['goal_flow_start', 'goal_flow_continue']:
+        response = result['response_text']
+
+    elif result['action'] == 'need_goal_name':
+        st.session_state.awaiting_info = True
+        st.session_state.awaiting_info_type = 'goal_name'
+        response = result['response_text']
+
+    elif result['action'] == 'need_task_name':
+        st.session_state.awaiting_info = True
+        st.session_state.awaiting_info_type = 'task_name'
+        response = result['response_text']
+
+    elif result['action'] == 'need_more_info':
+        info_needed = result.get('info_needed', '')
+        if info_needed == 'calendar_preference':
+            st.session_state.goal_creation_stage = 'ask_calendar'
+            st.session_state.pending_goal = result.get('pending_data', {})
+        elif info_needed == 'days':
+            st.session_state.goal_creation_stage = 'get_time'
+            st.session_state.pending_goal = result.get('pending_data', {})
+        elif info_needed == 'time':
+            st.session_state.goal_creation_stage = 'get_time'
+            st.session_state.pending_goal = result.get('pending_data', {})
+        response = result['response_text']
+
+    elif result['needs_confirmation']:
+        st.session_state.awaiting_confirmation = True
+        st.session_state.pending_action = result['action']
+        st.session_state.pending_data = result['pending_data']
+        response = result['response_text']
+
+    else:
+        response = result['response_text']
+        st.session_state.awaiting_confirmation = False
+        st.session_state.awaiting_info = False
+
+    st.session_state.messages.append({"role": "assistant", "content": response})
+
+
+def _render_content_area():
+    """Render the main content area based on current view"""
+    current_view = st.session_state.current_view
+    today = date.today()
+
+    try:
+        if current_view == "today":
+            st.subheader("📅 Today's Schedule")
+            result = client.list_items(date_from=today, date_to=today, limit=50)
             if result['total'] == 0:
-                st.info("No items for today")
+                st.info("Nothing scheduled for today. Use the chat to add items!")
             else:
-                st.caption(f"Showing {len(result['items'])} of {result['total']} items")
                 for item in result['items']:
-                    render_item_card(item, key_prefix="today")
+                    render_item_card(item, client, key_prefix="today")
 
-        except Exception as e:
-            # Ignore RerunData exceptions (these are expected from st.rerun())
-            if "RerunData" not in str(type(e).__name__):
-                st.error(f"Error loading items: {e}")
-
-    # Tab 2: Upcoming (next 7 days)
-    with tabs[1]:
-        st.header("Upcoming (Next 7 Days)")
-        today = date.today()
-        next_week = today + timedelta(days=7)
-
-        try:
-            result = client.list_items(
-                date_from=today,
-                date_to=next_week,
-                status=filter_status,
-                type=filter_type if filter_type else None,
-                source=filter_source,
-                limit=100
-            )
-
+        elif current_view == "goals":
+            st.subheader("🎯 Your Goals")
+            result = client.list_items(type=["goal"], limit=50)
             if result['total'] == 0:
-                st.info("No upcoming items")
+                st.info("No goals yet. Try saying 'add a new goal'")
             else:
-                st.caption(f"Showing {len(result['items'])} of {result['total']} items")
-
-                # Group by date
-                items_by_date = {}
                 for item in result['items']:
-                    item_date = item['date']
-                    if item_date not in items_by_date:
-                        items_by_date[item_date] = []
-                    items_by_date[item_date].append(item)
+                    render_item_card(item, client, key_prefix="goals")
 
-                # Display grouped by date
-                for item_date in sorted(items_by_date.keys()):
-                    date_obj = datetime.fromisoformat(item_date).date()
-                    days_away = (date_obj - today).days
-
-                    if days_away == 0:
-                        date_label = "Today"
-                    elif days_away == 1:
-                        date_label = "Tomorrow"
-                    else:
-                        date_label = date_obj.strftime("%A, %b %d")
-
-                    st.subheader(f"{date_label} ({len(items_by_date[item_date])} items)")
-
-                    for item in items_by_date[item_date]:
-                        render_item_card(item, key_prefix=f"upcoming_{item_date}")
-
-        except Exception as e:
-            # Ignore RerunData exceptions (these are expected from st.rerun())
-            if "RerunData" not in str(type(e).__name__):
-                st.error(f"Error loading items: {e}")
-
-    # Tab 3: All Items
-    with tabs[2]:
-        st.header("All Items")
-
-        # Search
-        search_query = st.text_input("🔍 Search", placeholder="Search title, description, location...")
-
-        # Pagination
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            limit = st.selectbox("Items per page", [10, 25, 50, 100], index=1)
-        with col2:
-            offset = st.number_input("Offset", min_value=0, value=0, step=limit)
-
-        try:
-            result = client.list_items(
-                type=filter_type if filter_type else None,
-                status=filter_status,
-                source=filter_source,
-                search=search_query if search_query else None,
-                limit=limit,
-                offset=offset
-            )
-
-            st.caption(f"Showing {offset + 1}-{offset + len(result['items'])} of {result['total']} items")
-
+        elif current_view == "tasks":
+            st.subheader("✅ Your Tasks")
+            result = client.list_items(type=["task"], status="upcoming", limit=50)
             if result['total'] == 0:
-                st.info("No items found")
+                st.info("No pending tasks")
             else:
                 for item in result['items']:
-                    render_item_card(item, key_prefix="all")
+                    render_item_card(item, client, key_prefix="tasks")
 
-        except Exception as e:
-            # Ignore RerunData exceptions (these are expected from st.rerun())
-            if "RerunData" not in str(type(e).__name__):
-                st.error(f"Error loading items: {e}")
+        elif current_view == "upcoming":
+            st.subheader("📆 Upcoming (Next 7 Days)")
+            next_week = today + timedelta(days=7)
+            result = client.list_items(date_from=today, date_to=next_week, limit=50)
+            if result['total'] == 0:
+                st.info("Nothing scheduled for the next 7 days")
+            else:
+                _render_upcoming_items(result['items'], today)
 
-    # Tab 4: Add New
-    with tabs[3]:
-        st.header("Add New Item")
+        elif current_view == "add_item":
+            item_type = st.session_state.get('add_item_type', 'task')
+            st.subheader(f"➕ Add New {item_type.title()}")
+            render_add_form(item_type, client)
 
-        with st.form("add_item_form"):
-            col1, col2 = st.columns(2)
+        elif current_view == "all":
+            st.subheader("✅ All Items")
+            result = client.list_items(limit=100)
+            for item in result['items']:
+                render_item_card(item, client, key_prefix="all")
 
-            with col1:
-                item_type = st.selectbox("Type", ["appointment", "meeting", "task", "goal"])
-                title = st.text_input("Title *", placeholder="Enter title...")
-                date_val = st.date_input("Date *", value=date.today())
+    except RerunException:
+        raise
+    except Exception as e:
+        st.error(f"Error: {e}")
 
-            with col2:
-                status = st.selectbox("Status", ["upcoming", "in_progress", "done"], index=0)
-                priority = st.selectbox("Priority", [None, "low", "med", "high"], index=2)
-                source = st.selectbox("Source", ["manual", "gmail", "calendar"], index=0)
 
-            description = st.text_area("Description", placeholder="Optional description...")
+def _render_upcoming_items(items, today):
+    """Render items grouped by date"""
+    items_by_date = {}
+    for item in items:
+        item_date = item['date']
+        if item_date not in items_by_date:
+            items_by_date[item_date] = []
+        items_by_date[item_date].append(item)
 
-            # Calendar integration for goals
-            add_to_calendar = False
-            recurring_days = None
-            session_time_start = None
-            session_time_end = None
-
-            if item_type == "goal":
-                st.markdown("#### 📅 Calendar Integration (Optional)")
-                st.caption("Add recurring calendar events for this goal")
-
-                add_to_calendar = st.checkbox("Add to Calendar", value=False)
-
-                if add_to_calendar:
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-                        recurring_days = st.text_input(
-                            "Recurring Days",
-                            placeholder="e.g., 'mon, wed, fri' or 'weekdays'",
-                            help="Enter days for recurring sessions"
-                        )
-
-                    with col2:
-                        time_col1, time_col2 = st.columns(2)
-                        with time_col1:
-                            session_time_start = st.text_input(
-                                "Start Time",
-                                placeholder="e.g., '7:30am'",
-                                help="Session start time"
-                            )
-                        with time_col2:
-                            session_time_end = st.text_input(
-                                "End Time",
-                                placeholder="e.g., '9:00am'",
-                                help="Session end time"
-                            )
-
-            col1, col2 = st.columns(2)
-            with col1:
-                start_time = st.time_input("Start Time (optional)", value=None)
-            with col2:
-                location = st.text_input("Location (optional)")
-
-            if st.form_submit_button("➕ Create Item"):
-                if not title:
-                    st.error("Title is required")
-                else:
-                    try:
-                        # If goal with calendar, use BIL endpoint directly
-                        if item_type == "goal" and add_to_calendar and recurring_days and session_time_start and session_time_end:
-                            import requests
-                            import re
-
-                            # Extract target_per_week from description or default to days count
-                            target_per_week = 3  # Default
-
-                            # Try to parse "X times per week" from description
-                            if description:
-                                match = re.search(r'(\d+)\s*(?:times?|x)\s*(?:per|a)\s*week', description.lower())
-                                if match:
-                                    target_per_week = int(match.group(1))
-
-                            goal_data = {
-                                "name": title,
-                                "target_per_week": target_per_week,
-                                "description": description,
-                                "recurring_days": recurring_days,
-                                "session_time_start": session_time_start,
-                                "session_time_end": session_time_end,
-                                "weeks_ahead": 4
-                            }
-
-                            # Create goal with calendar config
-                            response = requests.post("http://localhost:8000/behaviour/goals/with-calendar", json=goal_data)
-                            response.raise_for_status()
-                            result = response.json()
-
-                            st.success(f"✅ {result['message']}")
-
-                            # Create calendar events
-                            if result.get("calendar_config", {}).get("ready_for_calendar_creation"):
-                                goal_id = result["goal_id"]
-
-                                cal_response = requests.post(
-                                    "http://localhost:8000/calendar/events/create-recurring-for-goal",
-                                    params={"goal_id": goal_id}
-                                )
-
-                                if cal_response.ok:
-                                    cal_result = cal_response.json()
-                                    st.success(f"📅 {cal_result['message']}")
-                                    st.balloons()
-                                else:
-                                    st.warning(f"Goal created but calendar events failed: {cal_response.text}")
-
-                        else:
-                            # Standard item creation (not goal with calendar)
-                            new_item = {
-                                "type": item_type,
-                                "title": title,
-                                "date": str(date_val),
-                                "status": status,
-                                "source": source,
-                                "priority": priority,
-                                "description": description if description else None,
-                                "start_time": start_time.strftime("%H:%M") if start_time else None,
-                                "location": location if location else None
-                            }
-
-                            created = client.create_item(new_item)
-                            st.success(f"✅ Created: {created['title']}")
-                            st.balloons()
-
-                    except Exception as e:
-                        st.error(f"Error creating item: {e}")
+    for item_date in sorted(items_by_date.keys()):
+        date_obj = datetime.fromisoformat(item_date).date()
+        days_away = (date_obj - today).days
+        if days_away == 0:
+            date_label = "Today"
+        elif days_away == 1:
+            date_label = "Tomorrow"
+        else:
+            date_label = date_obj.strftime("%A, %b %d")
+        st.caption(f"**{date_label}**")
+        for item in items_by_date[item_date]:
+            render_item_card(item, client, key_prefix=f"upcoming_{item_date}")
 
 
 if __name__ == "__main__":

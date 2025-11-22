@@ -60,10 +60,13 @@ def auto_scan_emails():
 # Import starts module load
 load_modules()
 
-# Start background email scanner on startup
+# Start background email scanner and scheduler on startup
 @app.on_event("startup")
 async def startup_event():
     """Run tasks on application startup"""
     print("🚀 AskSharon.ai started - Initializing background tasks...")
     # Run email scan in background thread (non-blocking)
     Thread(target=auto_scan_emails, daemon=True).start()
+    # Start scheduler for periodic tasks (email sync every 30 min)
+    from assistant.core.scheduler import start_scheduler
+    start_scheduler()

@@ -4,12 +4,38 @@ CRUD Operations
 Database operations for assistant items
 """
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func as sql_func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Tuple
 from datetime import date
+import re
+import uuid
 
 from . import models, schemas
 from datetime import time as time_type
+
+
+def _generate_sequential_id(db: Session, item_type: str) -> str:
+    """Generate sequential ID like goal_1, task_5, etc.
+
+    Uses MAX(id) with locking hint to prevent race conditions.
+    Falls back to UUID suffix if collision still occurs.
+    """
+    # Find all existing IDs for this type and get max number
+    pattern = f"{item_type}_%"
+    items = db.query(models.AssistantItem.id).filter(
+        models.AssistantItem.id.like(pattern)
+    ).with_for_update().all()  # Lock rows to prevent race condition
+
+    max_num = 0
+    for (item_id,) in items:
+        match = re.search(r'_(\d+)$', item_id)
+        if match:
+            num = int(match.group(1))
+            if num > max_num:
+                max_num = num
+
+    return f"{item_type}_{max_num + 1}"
 
 
 def _convert_db_item(item: models.AssistantItem) -> models.AssistantItem:
@@ -32,6 +58,7 @@ def get_items(
     type_filter: Optional[List[str]] = None,
     status_filter: Optional[str] = None,
     source_filter: Optional[str] = None,
+    category_filter: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     search: Optional[str] = None,
@@ -54,6 +81,9 @@ def get_items(
 
     if source_filter:
         query = query.filter(models.AssistantItem.source == source_filter)
+
+    if category_filter:
+        query = query.filter(models.AssistantItem.category == category_filter)
 
     if date_from:
         query = query.filter(models.AssistantItem.date >= date_from)
@@ -100,17 +130,43 @@ def create_item(
     db: Session,
     item: schemas.AssistantItemCreate
 ) -> models.AssistantItem:
-    """Create new item"""
+    """Create new item with retry on ID collision."""
     # Convert participants list to comma-separated string
     item_dict = item.model_dump()
     if item_dict.get("participants"):
         item_dict["participants"] = ",".join(item_dict["participants"])
 
-    db_item = models.AssistantItem(**item_dict)
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return _convert_db_item(db_item)
+    # Convert time strings to time objects for SQLite
+    if item_dict.get("start_time") and isinstance(item_dict["start_time"], str):
+        parts = item_dict["start_time"].split(":")
+        item_dict["start_time"] = time_type(int(parts[0]), int(parts[1]))
+    if item_dict.get("end_time") and isinstance(item_dict["end_time"], str):
+        parts = item_dict["end_time"].split(":")
+        item_dict["end_time"] = time_type(int(parts[0]), int(parts[1]))
+
+    item_type = item_dict.get("type", "item")
+
+    # Retry up to 3 times on ID collision (race condition)
+    for attempt in range(3):
+        try:
+            # Generate sequential ID like goal_1, task_5
+            item_dict["id"] = _generate_sequential_id(db, item_type)
+
+            db_item = models.AssistantItem(**item_dict)
+            db.add(db_item)
+            db.commit()
+            db.refresh(db_item)
+            return _convert_db_item(db_item)
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2:
+                # Last attempt - use UUID suffix to guarantee uniqueness
+                item_dict["id"] = f"{item_type}_{uuid.uuid4().hex[:8]}"
+                db_item = models.AssistantItem(**item_dict)
+                db.add(db_item)
+                db.commit()
+                db.refresh(db_item)
+                return _convert_db_item(db_item)
 
 
 def update_item(
@@ -119,7 +175,10 @@ def update_item(
     item_update: schemas.AssistantItemUpdate
 ) -> Optional[models.AssistantItem]:
     """Update existing item"""
-    db_item = get_item(db, item_id)
+    # Query directly - don't use get_item() which detaches the object
+    db_item = db.query(models.AssistantItem).filter(
+        models.AssistantItem.id == item_id
+    ).first()
     if not db_item:
         return None
 
@@ -129,6 +188,18 @@ def update_item(
     # Convert participants list to comma-separated string
     if "participants" in update_data and update_data["participants"]:
         update_data["participants"] = ",".join(update_data["participants"])
+
+    # Convert date string to date object if needed
+    if "date" in update_data and isinstance(update_data["date"], str):
+        update_data["date"] = date.fromisoformat(update_data["date"])
+
+    # Convert time strings to time objects for SQLite
+    if "start_time" in update_data and isinstance(update_data["start_time"], str):
+        parts = update_data["start_time"].split(":")
+        update_data["start_time"] = time_type(int(parts[0]), int(parts[1]))
+    if "end_time" in update_data and isinstance(update_data["end_time"], str):
+        parts = update_data["end_time"].split(":")
+        update_data["end_time"] = time_type(int(parts[0]), int(parts[1]))
 
     # Apply updates
     for field, value in update_data.items():
@@ -141,7 +212,10 @@ def update_item(
 
 def delete_item(db: Session, item_id: str) -> bool:
     """Delete item by ID"""
-    db_item = get_item(db, item_id)
+    # Query directly - don't use get_item() which detaches the object
+    db_item = db.query(models.AssistantItem).filter(
+        models.AssistantItem.id == item_id
+    ).first()
     if not db_item:
         return False
 

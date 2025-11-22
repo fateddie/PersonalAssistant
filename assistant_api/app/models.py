@@ -13,9 +13,17 @@ from .db import Base
 
 class ItemType(str, enum.Enum):
     """Type of assistant item"""
+    # Personal appointments (doctor, dentist, haircut, etc.)
     appointment = "appointment"
+    # Actual meetings you need to attend
     meeting = "meeting"
+    # Marketing webinars, promotional events, newsletters
+    webinar = "webinar"
+    # Due dates, expiration notices
+    deadline = "deadline"
+    # Tasks to complete
     task = "task"
+    # Long-term goals
     goal = "goal"
 
 
@@ -36,14 +44,15 @@ class ItemSource(str, enum.Enum):
 
 class AssistantItem(Base):
     """
-    Unified model for appointments, meetings, tasks, and goals
-    All 4 types share this schema with type-specific field usage
+    Unified model for appointments, meetings, tasks, goals, webinars, deadlines
+    All types share this schema with type-specific field usage
     """
     __tablename__ = "assistant_items"
 
-    # Core fields
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    type = Column(Enum(ItemType), nullable=False)
+    # Core fields - ID is set by crud.py's _generate_sequential_id()
+    id = Column(String, primary_key=True)
+    # Use String instead of Enum for flexibility with new types
+    type = Column(String(20), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
 
@@ -52,9 +61,9 @@ class AssistantItem(Base):
     start_time = Column(Time, nullable=True)
     end_time = Column(Time, nullable=True)
 
-    # Status tracking
-    status = Column(Enum(ItemStatus), nullable=False, default=ItemStatus.upcoming)
-    source = Column(Enum(ItemSource), nullable=False, default=ItemSource.manual)
+    # Status tracking (use String for flexibility)
+    status = Column(String(20), nullable=False, default="upcoming")
+    source = Column(String(20), nullable=False, default="manual")
 
     # External links
     gmail_thread_url = Column(String, nullable=True)
@@ -65,6 +74,10 @@ class AssistantItem(Base):
     participants = Column(Text, nullable=True)  # Comma-separated emails
     priority = Column(String(10), nullable=True)  # low|med|high
     goal_id = Column(String, nullable=True)  # Link tasks to goals
+
+    # Email categorization
+    category = Column(String(50), nullable=True)  # content_creation|trading|education|tech|service|shopping|other
+    subcategory = Column(String(50), nullable=True)  # newsletter|promotional|market_summary|course|mooc|etc
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

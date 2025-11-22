@@ -19,6 +19,7 @@ def list_items(
     type: Optional[List[str]] = Query(None),
     status: Optional[str] = None,
     source: Optional[str] = None,
+    category: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     search: Optional[str] = None,
@@ -32,6 +33,7 @@ def list_items(
     - **type**: Filter by item type(s) - can specify multiple
     - **status**: Filter by status (upcoming/in_progress/done/overdue)
     - **source**: Filter by source (manual/gmail/calendar)
+    - **category**: Filter by category (content_creation/trading/education/tech/service/shopping/other)
     - **date_from**: Filter items from this date onwards
     - **date_to**: Filter items up to this date
     - **search**: Full-text search across title, description, location, participants
@@ -43,6 +45,7 @@ def list_items(
         type_filter=type,
         status_filter=status,
         source_filter=source,
+        category_filter=category,
         date_from=date_from,
         date_to=date_to,
         search=search,
