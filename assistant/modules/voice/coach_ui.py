@@ -2,10 +2,10 @@
 Prompt Coach UI Components
 ==========================
 Streamlit UI for the prompt coaching flow.
+Improved UX with better guidance, progress indicators, and visual polish.
 """
 
 import streamlit as st
-from typing import Optional
 
 # Import from prompt_coach module
 import sys
@@ -21,27 +21,82 @@ from assistant.modules.prompt_coach.critic import generate_critique
 from assistant.modules.prompt_coach.database import save_session, get_saved_sessions
 from assistant.modules.prompt_coach.models import SectionStatus
 
+# Custom CSS for coach UI
+COACH_CSS = """
+<style>
+.coach-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1.5rem;
+    border-radius: 10px;
+    color: white;
+    margin-bottom: 1rem;
+}
+.score-badge {
+    font-size: 2rem;
+    font-weight: bold;
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    display: inline-block;
+}
+.score-high { background: #10b981; color: white; }
+.score-mid { background: #f59e0b; color: white; }
+.score-low { background: #ef4444; color: white; }
+.section-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+}
+.section-filled { border-left: 4px solid #10b981; }
+.section-unclear { border-left: 4px solid #f59e0b; }
+.section-missing { border-left: 4px solid #ef4444; }
+.question-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #667eea;
+}
+.progress-step {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    margin-right: 0.5rem;
+    font-size: 0.85rem;
+}
+.step-active { background: #667eea; color: white; }
+.step-done { background: #10b981; color: white; }
+.step-pending { background: #e5e7eb; color: #6b7280; }
+</style>
+"""
+
+EXAMPLE_PROMPT = """help me write a python script that processes some files and does something with the data, needs to be fast"""
+
+TEMPLATE_HELP = """
+**The 6-Section Template:**
+1. **Context** - Background info (who you are, what project)
+2. **Constraints** - Requirements & limitations
+3. **Inputs** - Data or information provided
+4. **Task** - What exactly should be done
+5. **Evaluation** - How to measure success
+6. **Output Format** - Expected response format
+"""
+
 
 def render_coach_tab():
     """Main entry point for the Coach tab"""
-    st.subheader("🎓 Prompt Coach")
-    st.caption("Transform messy prompts into well-structured ones")
+    st.markdown(COACH_CSS, unsafe_allow_html=True)
 
-    # Initialize session state for coach
-    if "coach_stage" not in st.session_state:
-        st.session_state.coach_stage = "input"
-    if "coach_template" not in st.session_state:
-        st.session_state.coach_template = None
-    if "coach_questions" not in st.session_state:
-        st.session_state.coach_questions = []
-    if "coach_original" not in st.session_state:
-        st.session_state.coach_original = ""
-    if "coach_critique" not in st.session_state:
-        st.session_state.coach_critique = None
+    # Initialize session state
+    _init_session_state()
 
-    # Render based on current stage
+    # Progress indicator
+    _render_progress_bar()
+
+    st.markdown("---")
+
+    # Render current stage
     stage = st.session_state.coach_stage
-
     if stage == "input":
         _render_input_stage()
     elif stage == "questions":
@@ -49,44 +104,101 @@ def render_coach_tab():
     elif stage == "result":
         _render_result_stage()
 
-    # Show saved prompts in expander
-    with st.expander("📚 Saved Prompts", expanded=False):
-        _render_saved_prompts()
+
+def _init_session_state():
+    """Initialize all session state variables"""
+    defaults = {
+        "coach_stage": "input",
+        "coach_template": None,
+        "coach_questions": [],
+        "coach_original": "",
+        "coach_critique": None,
+        "coach_answers": {},
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+def _render_progress_bar():
+    """Show progress through the coaching flow"""
+    stage = st.session_state.coach_stage
+    stages = [("input", "1. Input"), ("questions", "2. Clarify"), ("result", "3. Result")]
+
+    cols = st.columns([1, 1, 1, 2])
+    for i, (stage_id, label) in enumerate(stages):
+        with cols[i]:
+            if stage_id == stage:
+                st.markdown(f"**🔵 {label}**")
+            elif stages.index((stage_id, label)) < stages.index(
+                next((s for s in stages if s[0] == stage), stages[0])
+            ):
+                st.markdown(f"✅ {label}")
+            else:
+                st.markdown(f"⚪ {label}")
 
 
 def _render_input_stage():
     """Stage 1: User enters brain-dump prompt"""
-    st.markdown("**Paste your messy prompt below:**")
+    st.markdown("### 🎓 Prompt Coach")
+    st.markdown("*Transform your messy prompt into a well-structured one*")
+
+    # Help section
+    with st.expander("ℹ️ What makes a good prompt?", expanded=False):
+        st.markdown(TEMPLATE_HELP)
+
+    # Input area
+    st.markdown("**Paste your prompt below:**")
 
     brain_dump = st.text_area(
         "Your prompt",
         height=150,
-        placeholder="e.g., help me write code for a thing that does stuff with files...",
+        placeholder=EXAMPLE_PROMPT,
         key="coach_input",
+        label_visibility="collapsed",
     )
 
-    col1, col2 = st.columns([1, 4])
+    # Character count
+    if brain_dump:
+        st.caption(f"📝 {len(brain_dump)} characters")
+
+    # Action buttons
+    col1, col2, col3 = st.columns([2, 2, 3])
     with col1:
-        if st.button("🚀 Analyze", type="primary", disabled=not brain_dump):
-            with st.spinner("Analyzing your prompt..."):
-                # Extract template
-                template = extract_template(brain_dump)
-                st.session_state.coach_template = template
-                st.session_state.coach_original = brain_dump
+        analyze_btn = st.button(
+            "🚀 Analyze My Prompt",
+            type="primary",
+            disabled=not brain_dump or len(brain_dump) < 10,
+            use_container_width=True,
+        )
 
-                # Generate questions
-                questions = generate_questions(template)
-                st.session_state.coach_questions = questions
+    with col2:
+        if st.button("📝 Use Example", use_container_width=True):
+            st.session_state.coach_input = EXAMPLE_PROMPT
+            st.rerun()
 
-                if questions:
-                    st.session_state.coach_stage = "questions"
-                else:
-                    # No questions needed, go straight to result
-                    critique = generate_critique(brain_dump, template)
-                    st.session_state.coach_critique = critique
-                    st.session_state.coach_stage = "result"
+    if analyze_btn:
+        with st.spinner("🔍 Analyzing your prompt..."):
+            template = extract_template(brain_dump)
+            st.session_state.coach_template = template
+            st.session_state.coach_original = brain_dump
 
-                st.rerun()
+            questions = generate_questions(template)
+            st.session_state.coach_questions = questions
+
+            if questions:
+                st.session_state.coach_stage = "questions"
+            else:
+                critique = generate_critique(brain_dump, template)
+                st.session_state.coach_critique = critique
+                st.session_state.coach_stage = "result"
+
+            st.rerun()
+
+    # Saved prompts at bottom
+    st.markdown("---")
+    with st.expander("📚 Your Saved Prompts", expanded=False):
+        _render_saved_prompts()
 
 
 def _render_questions_stage():
@@ -94,57 +206,81 @@ def _render_questions_stage():
     template = st.session_state.coach_template
     questions = st.session_state.coach_questions
 
-    # Show current template status
-    st.markdown("**Template Status:**")
-    _render_template_status(template)
+    st.markdown("### 🔍 Let's Fill the Gaps")
 
-    st.divider()
+    # Template status overview
+    st.markdown("**Current template status:**")
+    _render_template_cards(template)
 
-    # Show questions
-    st.markdown(f"**I have {len(questions)} questions to fill the gaps:**")
+    st.markdown("---")
+
+    # Questions
+    num_questions = len(questions)
+    st.markdown(f"### ❓ {num_questions} Question{'s' if num_questions != 1 else ''} to Clarify")
 
     answers = {}
-    for q in questions:
+    for i, q in enumerate(questions):
         section_label = q.section.replace("_", " ").title()
-        answers[q.id] = st.text_input(
-            f"[{section_label}] {q.question}",
-            key=f"coach_answer_{q.id}",
+
+        st.markdown(
+            f"""<div class="question-card">
+            <strong>Q{i+1}. [{section_label}]</strong>
+            </div>""",
+            unsafe_allow_html=True,
         )
+        st.markdown(f"**{q.question}**")
+        answers[q.id] = st.text_area(
+            f"Answer {i+1}",
+            key=f"coach_answer_{q.id}",
+            height=80,
+            placeholder="Your answer...",
+            label_visibility="collapsed",
+        )
+        st.markdown("")
 
-    col1, col2, col3 = st.columns([1, 1, 3])
+    # Action buttons
+    st.markdown("---")
+    col1, col2, col3 = st.columns([2, 2, 3])
+
     with col1:
-        if st.button("✅ Submit Answers", type="primary"):
-            # Combine original with answers
-            combined = st.session_state.coach_original + "\n\nAdditional context:\n"
-            for q in questions:
-                if answers.get(q.id):
-                    combined += f"Q: {q.question}\nA: {answers[q.id]}\n\n"
-
-            with st.spinner("Processing your answers..."):
-                # Re-extract with new context
-                template = extract_template(combined)
-                st.session_state.coach_template = template
-
-                # Check for more questions
-                new_questions = generate_questions(template)
-
-                if new_questions and len(new_questions) > 0:
-                    st.session_state.coach_questions = new_questions
-                else:
-                    # Generate critique and finish
-                    critique = generate_critique(st.session_state.coach_original, template)
-                    st.session_state.coach_critique = critique
-                    st.session_state.coach_stage = "result"
-
-                st.rerun()
+        submit_btn = st.button("✅ Submit Answers", type="primary", use_container_width=True)
 
     with col2:
-        if st.button("⏭️ Skip & Finish"):
-            with st.spinner("Generating critique..."):
+        skip_btn = st.button("⏭️ Skip & Finish", use_container_width=True)
+
+    with col3:
+        if st.button("🔙 Start Over", use_container_width=True):
+            _reset_coach_state()
+            st.rerun()
+
+    if submit_btn:
+        # Combine original with answers
+        combined = st.session_state.coach_original + "\n\nAdditional context:\n"
+        for q in questions:
+            if answers.get(q.id):
+                combined += f"Q: {q.question}\nA: {answers[q.id]}\n\n"
+
+        with st.spinner("🔄 Processing your answers..."):
+            template = extract_template(combined)
+            st.session_state.coach_template = template
+
+            new_questions = generate_questions(template)
+
+            if new_questions and len(new_questions) > 0:
+                st.session_state.coach_questions = new_questions
+            else:
                 critique = generate_critique(st.session_state.coach_original, template)
                 st.session_state.coach_critique = critique
                 st.session_state.coach_stage = "result"
-                st.rerun()
+
+            st.rerun()
+
+    if skip_btn:
+        with st.spinner("🎯 Generating your improved prompt..."):
+            critique = generate_critique(st.session_state.coach_original, template)
+            st.session_state.coach_critique = critique
+            st.session_state.coach_stage = "result"
+            st.rerun()
 
 
 def _render_result_stage():
@@ -153,58 +289,93 @@ def _render_result_stage():
     critique = st.session_state.coach_critique
     original = st.session_state.coach_original
 
-    # Build final prompt
     final_prompt = _build_final_prompt(template)
 
-    # Score display
+    # Score header
     score = critique.overall_score if critique else 5
-    score_color = "🟢" if score >= 7 else "🟡" if score >= 4 else "🔴"
-    st.markdown(f"### {score_color} Score: {score}/10")
+    if score >= 7:
+        score_class = "score-high"
+        score_emoji = "🎉"
+        score_msg = "Great prompt!"
+    elif score >= 4:
+        score_class = "score-mid"
+        score_emoji = "👍"
+        score_msg = "Good start, room to improve"
+    else:
+        score_class = "score-low"
+        score_emoji = "💪"
+        score_msg = "Let's work on this"
 
-    # Tabs for different views
-    tab1, tab2, tab3 = st.tabs(["📝 Final Prompt", "📊 Critique", "📚 Lessons"])
+    st.markdown(
+        f"""
+        <div style="text-align: center; padding: 1rem;">
+            <div class="score-badge {score_class}">{score}/10</div>
+            <p style="margin-top: 0.5rem;">{score_emoji} {score_msg}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    with tab1:
-        st.markdown("**Your improved prompt:**")
-        st.code(final_prompt, language="markdown")
+    # Two columns: Original vs Improved
+    st.markdown("### 📊 Comparison")
+    col1, col2 = st.columns(2)
 
-        if st.button("📋 Copy to Clipboard"):
-            st.write("```\n" + final_prompt + "\n```")
-            st.success("Copied! (Use Cmd+C on the code block above)")
-
-    with tab2:
-        if critique:
-            st.markdown("**Strengths:**")
-            for s in critique.strengths:
-                st.markdown(f"✅ {s}")
-
-            st.markdown("**Weaknesses:**")
-            for w in critique.weaknesses:
-                st.markdown(f"⚠️ {w}")
-
-    with tab3:
-        if critique and critique.lessons:
-            for lesson in critique.lessons:
-                with st.expander(f"📖 {lesson.title}"):
-                    st.markdown(lesson.explanation)
-                    if lesson.example_before:
-                        st.markdown("**Before:**")
-                        st.code(lesson.example_before)
-                    if lesson.example_after:
-                        st.markdown("**After:**")
-                        st.code(lesson.example_after)
-
-    st.divider()
-
-    # Actions
-    col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        template_name = st.text_input("Name (optional)", placeholder="e.g., Code Review Prompt")
+        st.markdown("**❌ Original:**")
+        st.code(original, language=None)
 
     with col2:
-        st.write("")  # Spacer
-        st.write("")
-        if st.button("💾 Save to Library"):
+        st.markdown("**✅ Improved:**")
+        st.code(final_prompt, language="markdown")
+
+    # Critique sections
+    st.markdown("---")
+
+    if critique:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("### ✅ Strengths")
+            for s in critique.strengths:
+                st.success(s)
+
+        with col2:
+            st.markdown("### ⚠️ Areas to Improve")
+            for w in critique.weaknesses:
+                st.warning(w)
+
+        # Lessons
+        if critique.lessons:
+            st.markdown("---")
+            st.markdown("### 📚 Lessons Learned")
+
+            for lesson in critique.lessons:
+                with st.expander(f"📖 {lesson.title}", expanded=False):
+                    st.markdown(lesson.explanation)
+                    if lesson.example_before and lesson.example_after:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown("**Before:**")
+                            st.code(lesson.example_before, language=None)
+                        with col2:
+                            st.markdown("**After:**")
+                            st.code(lesson.example_after, language=None)
+
+    # Actions
+    st.markdown("---")
+    st.markdown("### 💾 Save & Continue")
+
+    col1, col2, col3 = st.columns([2, 1, 1])
+
+    with col1:
+        template_name = st.text_input(
+            "Name your prompt (optional)",
+            placeholder="e.g., Python File Processor",
+            label_visibility="collapsed",
+        )
+
+    with col2:
+        if st.button("💾 Save", type="primary", use_container_width=True):
             lessons = [l.title for l in critique.lessons] if critique else []
             save_session(
                 original_prompt=original,
@@ -213,36 +384,34 @@ def _render_result_stage():
                 lessons=lessons,
                 template_name=template_name if template_name else None,
             )
-            st.success("✅ Saved!")
+            st.success("✅ Saved to library!")
 
     with col3:
-        st.write("")
-        st.write("")
-        if st.button("🔄 Start New"):
+        if st.button("🔄 New Prompt", use_container_width=True):
             _reset_coach_state()
             st.rerun()
 
 
-def _render_template_status(template):
-    """Show template sections with status indicators"""
+def _render_template_cards(template):
+    """Show template sections as cards with status"""
     sections = [
-        ("Context", template.context),
-        ("Constraints", template.constraints),
-        ("Inputs", template.inputs),
-        ("Task", template.task),
-        ("Evaluation", template.evaluation),
-        ("Output Format", template.output_format),
+        ("Context", template.context, "Who you are, background info"),
+        ("Constraints", template.constraints, "Requirements, limitations"),
+        ("Inputs", template.inputs, "Data provided"),
+        ("Task", template.task, "What to do"),
+        ("Evaluation", template.evaluation, "Success criteria"),
+        ("Output", template.output_format, "Response format"),
     ]
 
-    cols = st.columns(6)
-    for i, (name, section) in enumerate(sections):
-        with cols[i]:
+    cols = st.columns(3)
+    for i, (name, section, hint) in enumerate(sections):
+        with cols[i % 3]:
             if section.status == SectionStatus.FILLED:
-                st.markdown(f"✅ {name}")
+                st.markdown(f"✅ **{name}**")
             elif section.status == SectionStatus.UNCLEAR:
-                st.markdown(f"🟡 {name}")
+                st.markdown(f"🟡 **{name}**")
             else:
-                st.markdown(f"❌ {name}")
+                st.markdown(f"❌ **{name}**")
 
 
 def _render_saved_prompts():
@@ -250,7 +419,7 @@ def _render_saved_prompts():
     sessions = get_saved_sessions(limit=10)
 
     if not sessions:
-        st.info("No saved prompts yet. Complete a coaching session to save one!")
+        st.info("No saved prompts yet. Complete a session to save one!")
         return
 
     for session in sessions:
@@ -259,13 +428,7 @@ def _render_saved_prompts():
         created = str(session.get("created_at", ""))[:10]
 
         with st.expander(f"📄 {name} ({score}/10) - {created}"):
-            st.markdown("**Final Prompt:**")
             st.code(session.get("final_prompt", ""), language="markdown")
-
-            if session.get("lessons"):
-                st.markdown("**Lessons:**")
-                for lesson in session["lessons"]:
-                    st.markdown(f"- {lesson}")
 
 
 def _build_final_prompt(template) -> str:
@@ -295,3 +458,4 @@ def _reset_coach_state():
     st.session_state.coach_questions = []
     st.session_state.coach_original = ""
     st.session_state.coach_critique = None
+    st.session_state.coach_answers = {}
