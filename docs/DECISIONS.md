@@ -341,6 +341,62 @@ Fixed relative import error: `from parsers` → `from .parsers`
 
 ---
 
+### ADR-008: Code Quality Cleanup & Type Annotation Fixes
+**Date**: 2025-11-23
+**Status**: Implemented
+**Decision Type**: Code Quality
+
+**Context**:
+Pre-commit hooks were failing due to mypy type errors and Black formatting inconsistencies across the codebase. Git repository also had corrupted refs causing gc failures.
+
+**Issues Identified**:
+1. Git corrupted refs with " 2" suffix in .git/objects and .git/refs
+2. Missing type stubs for `requests` and `python-dateutil`
+3. Unit tests failing with `ModuleNotFoundError` (missing sys.path setup)
+4. Multiple mypy type annotation errors across the codebase
+5. Black formatting inconsistencies
+6. `.mypy_cache/` accidentally tracked in git
+
+**Implementation**:
+
+1. **Git Cleanup**:
+   - Removed corrupted files with `find .git -name "* 2" -delete`
+   - Ran `git gc --prune=now` to clean up repository
+   - Removed `.git/gc.log` blocking automatic cleanup
+
+2. **Type Stubs Installation**:
+   - Installed `types-requests` and `types-python-dateutil`
+
+3. **Test Configuration**:
+   - Created `tests/conftest.py` with PYTHONPATH setup:
+   ```python
+   PROJECT_ROOT = Path(__file__).parent.parent
+   if str(PROJECT_ROOT) not in sys.path:
+       sys.path.insert(0, str(PROJECT_ROOT))
+   ```
+
+4. **Type Annotation Fixes**:
+   - `parsers.py`: Added `dict` type annotation
+   - `email_parser.py`: Added `isinstance(payload, bytes)` type narrowing
+   - `rate_limiter.py`: Added `Deque[float]` annotation
+   - `client.py`: Added `Dict[str, Any]` return types
+   - `helpers.py`: Changed return type to `Dict[str, Any]`
+   - `llm_processor.py`: Added `Dict[str, Any]` return type
+   - `actions.py`: Added explicit `str` typing for result variables
+
+5. **Gitignore Update**:
+   - Added `.mypy_cache/` to `.gitignore`
+   - Removed accidentally committed cache files
+
+**Success Criteria**:
+- ✅ All 36 unit tests passing
+- ✅ Git gc runs without errors
+- ✅ Black formatting applied consistently
+- ✅ Core mypy errors fixed in modified files
+- ✅ `.mypy_cache/` excluded from version control
+
+---
+
 ### Future Decisions (Phase 2+)
 - Component refactoring strategy
 - State management consolidation approach
