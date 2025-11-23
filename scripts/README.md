@@ -32,7 +32,7 @@ Central management scripts for the AskSharon.ai application.
 ## Available Scripts
 
 ### 🚀 `start.sh` - Start All Services
-**Central startup script** - launches both backend and frontend in one command.
+**Central startup script** - launches all 3 services in one command.
 
 ```bash
 ./scripts/start.sh
@@ -40,29 +40,31 @@ Central management scripts for the AskSharon.ai application.
 
 **What it does:**
 - ✅ Checks virtual environment exists
-- ✅ Verifies ports 8000 and 8501 are free
-- ✅ Starts FastAPI backend on port 8000
+- ✅ Verifies ports 8000, 8002, and 8501 are free
+- ✅ Starts Orchestrator on port 8000
+- ✅ Starts Assistant API on port 8002
 - ✅ Starts Streamlit frontend on port 8501
-- ✅ Logs output to `logs/backend.log` and `logs/frontend.log`
-- ✅ Saves PIDs to `logs/backend.pid` and `logs/frontend.pid`
+- ✅ Logs output to `logs/orchestrator.log`, `logs/assistant_api.log`, and `logs/frontend.log`
+- ✅ Saves PIDs to corresponding `.pid` files
 - ✅ Displays access URLs
 
 **Access points after start:**
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
+- Orchestrator: http://localhost:8000
+- Assistant API: http://localhost:8002
+- API Documentation: http://localhost:8002/docs
 - Frontend UI: http://localhost:8501
 
 ---
 
 ### 🛑 `stop.sh` - Stop All Services
-Cleanly shuts down both backend and frontend.
+Cleanly shuts down all 3 services.
 
 ```bash
 ./scripts/stop.sh
 ```
 
 **What it does:**
-- Finds processes on ports 8000 and 8501
+- Finds processes on ports 8000, 8002, and 8501
 - Sends SIGTERM for graceful shutdown
 - Force kills if processes don't stop
 - Cleans up PID files
@@ -70,15 +72,16 @@ Cleanly shuts down both backend and frontend.
 ---
 
 ### 📊 `status.sh` - Check Service Status
-Shows current status of all services.
+Shows current status of all 3 services.
 
 ```bash
 ./scripts/status.sh
 ```
 
 **What it shows:**
-- Backend status (running/stopped + PID)
-- Frontend status (running/stopped + PID)
+- Orchestrator status (port 8000)
+- Assistant API status (port 8002)
+- Frontend status (port 8501)
 - Database status and size
 - Log file information
 - Quick summary
@@ -285,14 +288,15 @@ tail -f logs/frontend.log
 
 All logs are stored in `logs/`:
 
-- `logs/backend.log` - FastAPI backend output
-- `logs/frontend.log` - Streamlit frontend output
-- `logs/backend.pid` - Backend process ID
-- `logs/frontend.pid` - Frontend process ID
+- `logs/orchestrator.log` - Orchestrator output (port 8000)
+- `logs/assistant_api.log` - Assistant API output (port 8002)
+- `logs/frontend.log` - Streamlit frontend output (port 8501)
+- Corresponding `.pid` files for each service
 
 **View logs in real-time:**
 ```bash
-tail -f logs/backend.log
+tail -f logs/orchestrator.log
+tail -f logs/assistant_api.log
 tail -f logs/frontend.log
 ```
 
@@ -307,6 +311,7 @@ tail -f logs/frontend.log
 
 # Or manually kill processes
 lsof -ti :8000 | xargs kill
+lsof -ti :8002 | xargs kill
 lsof -ti :8501 | xargs kill
 ```
 

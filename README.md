@@ -3,16 +3,17 @@
 **Internal package name:** `asksharon_ai_blueprint`
 **Public brand:** AskSharon.ai
 
-> 🎯 **Current Status:** Phase 1 MVP (95% complete) | 46 files created | 26 automated tests | Full documentation
+> 🎯 **Current Status:** Phase 7 (Prompt Coach) | 50+ files | 36 automated tests | Full documentation
 
 AskSharon.ai is a modular, voice-enabled personal assistant designed for **phase-gated**, **plug-in style** development. It manages email, tasks, routines, and behaviour — with persistent memory and a behavioural-psychology layer (adaptive goal reinforcement, conversational data elicitation, weekly reviews).
 
 ## 🚀 What's Working Right Now
 
-✅ **Backend API** (Port 8000) - 5 modules, 5 endpoints, event bus
+✅ **3-Service Architecture** - Orchestrator (8000), Assistant API (8002), Frontend (8501)
 ✅ **Frontend UI** (Port 8501) - Chat interface with Streamlit
+✅ **Prompt Coach** - Transform messy prompts into structured templates (🎓 Coach tab)
 ✅ **Database** - SQLite + FAISS for semantic search
-✅ **Testing** - 26 automated tests with visual regression
+✅ **Testing** - 36 automated tests with visual regression
 ✅ **Automation** - One-command setup, start, test, stop
 ✅ **Documentation** - Comprehensive guides and tutorials
 
@@ -97,8 +98,9 @@ nano .env  # Edit with your API keys if needed
 ```
 
 **Access Points:**
-- 🌐 Backend API: http://localhost:8000
-- 📚 API Docs: http://localhost:8000/docs
+- 🔧 Orchestrator: http://localhost:8000
+- 🌐 Assistant API: http://localhost:8002
+- 📚 API Docs: http://localhost:8002/docs
 - 💬 Chat UI: http://localhost:8501
 
 **See [scripts/README.md](scripts/README.md) for all available scripts.**
