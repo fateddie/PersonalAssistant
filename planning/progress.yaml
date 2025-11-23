@@ -5,16 +5,25 @@ phase_2_behaviour:
   status: completed
   completed_date: 2025-11-06
 phase_3_planner:
-  status: active
+  status: completed
+  completed_date: 2025-11-15
   features_completed:
     - Email event detection
     - Google Calendar integration
     - Event approval workflow
-  in_progress:
     - Smart scheduling
     - Conflict detection
-    - Time analytics
 phase_4_fitness:
   status: locked
 phase_5_expansion:
   status: locked
+phase_7_prompt_coach:
+  status: completed
+  completed_date: 2025-11-23
+  features_completed:
+    - 6-section template extraction
+    - Clarifying question generation
+    - Critique and lessons
+    - Streamlit Coach tab UI
+    - Session storage in SQLite
+    - UX improvements (progress bar, CSS styling)

@@ -1,25 +1,72 @@
 # AskSharon.ai - Progress Tracking
 
 **Project Start:** November 5, 2025
-**Last Updated:** November 6, 2025
-**Current Phase:** Phase 1 MVP
-**Phase Status:** 95% Complete
+**Last Updated:** November 23, 2025
+**Current Phase:** Phase 7 - Prompt Coach
+**Phase Status:** 100% Complete (Week 1 & 2)
 
 ---
 
 ## 📊 Overall Progress
 
 ```
-Phase 1 (MVP)          ████████████████░░ 95%  ← WE ARE HERE
-Phase 2 (Behaviour)    ░░░░░░░░░░░░░░░░░░  0%
-Phase 3 (Planner)      ░░░░░░░░░░░░░░░░░░  0%
-Phase 4 (Fitness)      ░░░░░░░░░░░░░░░░░░  0%
-Phase 5 (Expansion)    ░░░░░░░░░░░░░░░░░░  0%
+Phase 1 (MVP)          ██████████████████ 100% ✓
+Phase 2 (Behaviour)    ██████████████████ 100% ✓
+Phase 3 (Planner)      ██████████████████ 100% ✓
+Phase 4 (Fitness)      ░░░░░░░░░░░░░░░░░░  0%  (locked)
+Phase 5 (Expansion)    ░░░░░░░░░░░░░░░░░░  0%  (locked)
+Phase 7 (Prompt Coach) ██████████████████ 100% ← COMPLETE
 ```
 
 ---
 
-## 🎯 Phase 1 MVP - Foundation (Current)
+## 🎯 Phase 7 - Prompt Coach (Complete)
+
+**Goal:** Transform messy prompts into well-structured ones through coaching
+
+### ✅ Week 1 - Backend (Complete)
+- [x] Created `assistant/modules/prompt_coach/` module (8 files)
+- [x] Pydantic models for 6-section template
+- [x] LLM client with OpenAI GPT-4o-mini
+- [x] Extractor: Parse brain-dump → template
+- [x] Interrogator: Generate clarifying questions (max 5)
+- [x] Critic: Generate critique + lessons
+- [x] FastAPI router with session management
+- [x] SQLite storage (prompt_sessions table)
+
+### ✅ Week 2 - Frontend (Complete)
+- [x] Coach tab in Streamlit UI (🎓 button)
+- [x] 3-step flow: Input → Questions → Result
+- [x] Custom CSS styling
+- [x] Progress bar indicator
+- [x] Side-by-side comparison (original vs improved)
+- [x] Score badge with color coding
+- [x] Strengths/weaknesses display
+- [x] Collapsible lessons
+- [x] Save to library functionality
+- [x] Documentation: `docs/PROMPT_COACH.md`
+
+### Architecture
+```
+assistant/modules/prompt_coach/
+├── __init__.py       # Module registration
+├── models.py         # Pydantic models
+├── system_prompts.py # LLM prompts
+├── llm_client.py     # OpenAI client
+├── extractor.py      # Parse brain-dump → template
+├── interrogator.py   # Generate questions
+├── critic.py         # Generate critique + lessons
+├── coach.py          # FastAPI router
+└── database.py       # SQLite storage
+
+assistant/modules/voice/
+├── coach_ui.py       # Streamlit Coach tab
+└── main.py           # Updated with Coach tab
+```
+
+---
+
+## 🎯 Phase 1 MVP - Foundation (Complete)
 
 **Goal:** Build core infrastructure and basic functionality
 
