@@ -122,7 +122,10 @@ def generate_summaries_endpoint(limit: int = 10):
         }
     """
     if not ai_is_configured():
-        return {"summarized": 0, "message": "No AI provider configured. Set AI_PROVIDER in config/.env"}
+        return {
+            "summarized": 0,
+            "message": "No AI provider configured. Set AI_PROVIDER in config/.env",
+        }
 
     # Get emails without summaries (include body for summarization)
     emails = get_stored_emails(limit=limit, include_body=True)
@@ -186,7 +189,7 @@ def detect_events_endpoint(limit: int = 50):
     return {
         "detected": stored_count,
         "events": detected_events,
-        "message": f"Detected {stored_count} events from {len(emails)} emails"
+        "message": f"Detected {stored_count} events from {len(emails)} emails",
     }
 
 
@@ -220,30 +223,34 @@ def get_detected_events(status: str = "all", limit: int = 20, future_only: bool 
 
     with unified_engine.connect() as conn:
         result = conn.execute(
-            text(f"""
+            text(
+                f"""
                 SELECT id, type, title, date, start_time,
                        location, gmail_thread_url, participants, status
                 FROM assistant_items
                 {where_clause}
                 ORDER BY date ASC
                 LIMIT :limit
-            """),
-            {"limit": limit}
+            """
+            ),
+            {"limit": limit},
         )
 
         events = []
         for row in result:
-            events.append({
-                "id": row[0],
-                "event_type": row[1],
-                "title": row[2],
-                "date": str(row[3]) if row[3] else None,
-                "start_time": str(row[4]) if row[4] else None,
-                "location": row[5],
-                "url": row[6],
-                "attendees": row[7],
-                "status": row[8]
-            })
+            events.append(
+                {
+                    "id": row[0],
+                    "event_type": row[1],
+                    "title": row[2],
+                    "date": str(row[3]) if row[3] else None,
+                    "start_time": str(row[4]) if row[4] else None,
+                    "location": row[5],
+                    "url": row[6],
+                    "attendees": row[7],
+                    "status": row[8],
+                }
+            )
 
     return {"events": events, "total": len(events)}
 
@@ -265,18 +272,17 @@ def approve_event(event_id: str):
     try:
         with unified_engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE assistant_items
                     SET status = 'in_progress'
                     WHERE id = :event_id
-                """),
-                {"event_id": event_id}
+                """
+                ),
+                {"event_id": event_id},
             )
 
-        return {
-            "status": "approved",
-            "message": f"Event {event_id} marked as in_progress."
-        }
+        return {"status": "approved", "message": f"Event {event_id} marked as in_progress."}
 
     except Exception as e:
         print(f"❌ Error approving event: {e}")
@@ -300,18 +306,17 @@ def reject_event(event_id: str):
     try:
         with unified_engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE assistant_items
                     SET status = 'done'
                     WHERE id = :event_id
-                """),
-                {"event_id": event_id}
+                """
+                ),
+                {"event_id": event_id},
             )
 
-        return {
-            "status": "rejected",
-            "message": f"Event {event_id} marked as done"
-        }
+        return {"status": "rejected", "message": f"Event {event_id} marked as done"}
 
     except Exception as e:
         print(f"❌ Error rejecting event: {e}")
@@ -331,7 +336,4 @@ def get_ai_status():
     """
     status = get_provider_status()
 
-    return {
-        "provider_status": status,
-        "message": f"Active provider: {status['active_provider']}"
-    }
+    return {"provider_status": status, "message": f"Active provider: {status['active_provider']}"}

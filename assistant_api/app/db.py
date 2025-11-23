@@ -3,6 +3,7 @@ Database Setup
 ==============
 SQLAlchemy configuration and session management
 """
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from .config import settings
@@ -10,7 +11,7 @@ from .config import settings
 # Create engine
 engine = create_engine(
     settings.database_url,
-    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
 )
 
 # Session factory

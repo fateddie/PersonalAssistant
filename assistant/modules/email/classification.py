@@ -13,8 +13,14 @@ from .database import unified_engine
 
 # Newsletter domains for classification
 NEWSLETTER_DOMAINS = [
-    "beehiiv.com", "substack.com", "mailchimp.com", "sendgrid.net",
-    "constantcontact.com", "hubspot.com", "sparkpost.com", "mailin.fr"
+    "beehiiv.com",
+    "substack.com",
+    "mailchimp.com",
+    "sendgrid.net",
+    "constantcontact.com",
+    "hubspot.com",
+    "sparkpost.com",
+    "mailin.fr",
 ]
 
 # Sender categorization mapping (domain pattern -> (category, subcategory))
@@ -25,7 +31,6 @@ SENDER_CATEGORIES = {
     "vidiq.com": ("content_creation", "youtube"),
     "vinhgiang.com": ("content_creation", "speaking"),
     "literallyacademy.com": ("content_creation", "course"),
-
     # Trading / Markets
     "seekingalpha.com": ("trading", "market_summary"),
     "investorplace.com": ("trading", "promotional"),
@@ -35,17 +40,14 @@ SENDER_CATEGORIES = {
     "tradingdesk": ("trading", "newsletter"),
     "digitalassetdaily": ("trading", "crypto"),
     "thedefinvestor": ("trading", "crypto"),
-
     # Education / MOOC
     "berkeley.edu": ("education", "mooc"),
     "academia-mail.com": ("education", "research"),
     "newventureweekly": ("education", "startup"),
-
     # Tech
     "github.com": ("tech", "updates"),
     "gitguardian.com": ("tech", "security"),
     "techpresso": ("tech", "newsletter"),
-
     # Other services
     "google.com": ("service", "account"),
     "temu": ("shopping", "promotional"),
@@ -53,7 +55,16 @@ SENDER_CATEGORIES = {
 
 # Goal keyword mappings for matching emails to goals
 GOAL_KEYWORDS = {
-    "mooc": ["course", "lecture", "assignment", "berkeley", "agentx", "agentic", "deepmind", "competition"],
+    "mooc": [
+        "course",
+        "lecture",
+        "assignment",
+        "berkeley",
+        "agentx",
+        "agentic",
+        "deepmind",
+        "competition",
+    ],
     "ai": ["machine learning", "neural", "llm", "gpt", "agent", "model"],
     "gym": ["workout", "fitness", "exercise", "training"],
     "guitar": ["music", "practice", "lesson", "chord"],
@@ -167,7 +178,7 @@ def store_to_unified_db(event_data: Dict) -> bool:
         gmail_url = None
         if email_id:
             message_id = email_id.strip("<>")
-            encoded_id = quote(message_id, safe='')
+            encoded_id = quote(message_id, safe="")
             gmail_url = f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{encoded_id}"
 
         # Parse date_time
@@ -183,9 +194,7 @@ def store_to_unified_db(event_data: Dict) -> bool:
 
         # Classify event type
         item_type = classify_event_type(
-            event_data.get("event_type"),
-            event_data.get("attendees"),
-            event_data.get("title")
+            event_data.get("event_type"), event_data.get("attendees"), event_data.get("title")
         )
 
         # Match email to existing goals
@@ -203,14 +212,15 @@ def store_to_unified_db(event_data: Dict) -> bool:
             # Check if already exists by gmail_thread_url
             result = conn.execute(
                 text("SELECT id FROM assistant_items WHERE gmail_thread_url = :url"),
-                {"url": gmail_url}
+                {"url": gmail_url},
             )
             if result.fetchone():
                 return False  # Already exists - skip
 
             # Insert into assistant_items (single source of truth)
             conn.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO assistant_items (
                         id, type, title, date, start_time, status, source,
                         gmail_thread_url, location, participants, goal_id, priority,
@@ -220,7 +230,8 @@ def store_to_unified_db(event_data: Dict) -> bool:
                         :gmail_thread_url, :location, :participants, :goal_id, :priority,
                         :category, :subcategory, :created_at, :updated_at
                     )
-                """),
+                """
+                ),
                 {
                     "id": item_id,
                     "type": item_type,
@@ -237,8 +248,8 @@ def store_to_unified_db(event_data: Dict) -> bool:
                     "category": category,
                     "subcategory": subcategory,
                     "created_at": datetime.now(),
-                    "updated_at": datetime.now()
-                }
+                    "updated_at": datetime.now(),
+                },
             )
 
         if category != "other":

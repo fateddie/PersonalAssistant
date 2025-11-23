@@ -3,6 +3,7 @@ CRUD Operations
 ===============
 Database operations for assistant items
 """
+
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func as sql_func
 from sqlalchemy.exc import IntegrityError
@@ -23,13 +24,16 @@ def _generate_sequential_id(db: Session, item_type: str) -> str:
     """
     # Find all existing IDs for this type and get max number
     pattern = f"{item_type}_%"
-    items = db.query(models.AssistantItem.id).filter(
-        models.AssistantItem.id.like(pattern)
-    ).with_for_update().all()  # Lock rows to prevent race condition
+    items = (
+        db.query(models.AssistantItem.id)
+        .filter(models.AssistantItem.id.like(pattern))
+        .with_for_update()
+        .all()
+    )  # Lock rows to prevent race condition
 
     max_num = 0
     for (item_id,) in items:
-        match = re.search(r'_(\d+)$', item_id)
+        match = re.search(r"_(\d+)$", item_id)
         if match:
             num = int(match.group(1))
             if num > max_num:
@@ -99,7 +103,7 @@ def get_items(
                 models.AssistantItem.title.ilike(search_pattern),
                 models.AssistantItem.description.ilike(search_pattern),
                 models.AssistantItem.location.ilike(search_pattern),
-                models.AssistantItem.participants.ilike(search_pattern)
+                models.AssistantItem.participants.ilike(search_pattern),
             )
         )
 
@@ -107,10 +111,12 @@ def get_items(
     total = query.count()
 
     # Apply pagination and ordering
-    items = query.order_by(
-        models.AssistantItem.date.asc(),
-        models.AssistantItem.start_time.asc()
-    ).offset(offset).limit(limit).all()
+    items = (
+        query.order_by(models.AssistantItem.date.asc(), models.AssistantItem.start_time.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     # Convert DB types
     items = [_convert_db_item(item) for item in items]
@@ -120,16 +126,11 @@ def get_items(
 
 def get_item(db: Session, item_id: str) -> Optional[models.AssistantItem]:
     """Get single item by ID"""
-    item = db.query(models.AssistantItem).filter(
-        models.AssistantItem.id == item_id
-    ).first()
+    item = db.query(models.AssistantItem).filter(models.AssistantItem.id == item_id).first()
     return _convert_db_item(item) if item else None
 
 
-def create_item(
-    db: Session,
-    item: schemas.AssistantItemCreate
-) -> models.AssistantItem:
+def create_item(db: Session, item: schemas.AssistantItemCreate) -> models.AssistantItem:
     """Create new item with retry on ID collision."""
     # Convert participants list to comma-separated string
     item_dict = item.model_dump()
@@ -170,15 +171,11 @@ def create_item(
 
 
 def update_item(
-    db: Session,
-    item_id: str,
-    item_update: schemas.AssistantItemUpdate
+    db: Session, item_id: str, item_update: schemas.AssistantItemUpdate
 ) -> Optional[models.AssistantItem]:
     """Update existing item"""
     # Query directly - don't use get_item() which detaches the object
-    db_item = db.query(models.AssistantItem).filter(
-        models.AssistantItem.id == item_id
-    ).first()
+    db_item = db.query(models.AssistantItem).filter(models.AssistantItem.id == item_id).first()
     if not db_item:
         return None
 
@@ -213,9 +210,7 @@ def update_item(
 def delete_item(db: Session, item_id: str) -> bool:
     """Delete item by ID"""
     # Query directly - don't use get_item() which detaches the object
-    db_item = db.query(models.AssistantItem).filter(
-        models.AssistantItem.id == item_id
-    ).first()
+    db_item = db.query(models.AssistantItem).filter(models.AssistantItem.id == item_id).first()
     if not db_item:
         return False
 

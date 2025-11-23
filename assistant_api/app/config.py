@@ -3,6 +3,7 @@ Configuration
 =============
 Environment and database configuration
 """
+
 import os
 from pydantic_settings import BaseSettings
 

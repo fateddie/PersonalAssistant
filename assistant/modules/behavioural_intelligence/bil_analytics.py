@@ -177,9 +177,7 @@ def generate_weekly_review():
             "🎯 Strong week overall - you're building solid habits. Consider adding a new goal?"
         )
     elif overall_adherence >= 50:
-        hypotheses.append(
-            "📊 Mixed results this week. What's blocking you from full consistency?"
-        )
+        hypotheses.append("📊 Mixed results this week. What's blocking you from full consistency?")
     else:
         hypotheses.append(
             "🔍 This was a challenging week. Would breaking goals into smaller steps help?"
@@ -197,9 +195,7 @@ def generate_weekly_review():
 
     # Hypothesis 3: Encouragement or adjustment
     if review["summary"]["goals_on_track"] > 0:
-        on_track_goals = [
-            g["goal"] for g in review["goals_detail"] if g["status"] == "✅ Achieved"
-        ]
+        on_track_goals = [g["goal"] for g in review["goals_detail"] if g["status"] == "✅ Achieved"]
         hypotheses.append(
             f"🌟 Your consistency with {', '.join(on_track_goals[:2])} is excellent! "
             "That's the momentum we want."

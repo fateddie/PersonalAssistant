@@ -43,14 +43,22 @@ EVENT_PATTERNS = {
     "appointment": [
         r"\b(appointment|booking|reservation|scheduled)\b",
         r"\b(doctor|dentist|consultation|checkup)\b",
-    ]
+    ],
 }
 
 # Sender patterns that indicate newsletters (not events)
 NEWSLETTER_SENDER_PATTERNS = [
-    r"newsletter@", r"@mail\.", r"@email\.", r"noreply@",
-    r"milkroad", r"seekingalpha", r"investorplace", r"tradingdesk",
-    r"behindthemarkets", r"foundr", r"beehiiv",
+    r"newsletter@",
+    r"@mail\.",
+    r"@email\.",
+    r"noreply@",
+    r"milkroad",
+    r"seekingalpha",
+    r"investorplace",
+    r"tradingdesk",
+    r"behindthemarkets",
+    r"foundr",
+    r"beehiiv",
 ]
 
 # Meeting URL patterns
@@ -58,7 +66,7 @@ URL_PATTERNS = {
     "zoom": r"https?://[\w.-]*zoom\.us/j/[\w?=&-]+",
     "google_meet": r"https?://meet\.google\.com/[\w-]+",
     "teams": r"https?://teams\.microsoft\.com/[\w?=&/-]+",
-    "generic": r"https?://[\S]+"
+    "generic": r"https?://[\S]+",
 }
 
 # Date/time keyword patterns
@@ -67,7 +75,7 @@ DATE_KEYWORDS = [
     r"\b(today|tomorrow|tonight|next week|this week|next month)",
     r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}",
     r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}",
-    r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}"
+    r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}",
 ]
 
 TIME_PATTERNS = [

@@ -3,6 +3,7 @@ Items Router
 ============
 CRUD endpoints for assistant items
 """
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -25,7 +26,7 @@ def list_items(
     search: Optional[str] = None,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List items with optional filtering
@@ -50,7 +51,7 @@ def list_items(
         date_to=date_to,
         search=search,
         limit=limit,
-        offset=offset
+        offset=offset,
     )
     return {"items": items, "total": total}
 
@@ -72,9 +73,7 @@ def create_item(item: schemas.AssistantItemCreate, db: Session = Depends(get_db)
 
 @router.patch("/{item_id}", response_model=schemas.AssistantItem)
 def update_item(
-    item_id: str,
-    item_update: schemas.AssistantItemUpdate,
-    db: Session = Depends(get_db)
+    item_id: str, item_update: schemas.AssistantItemUpdate, db: Session = Depends(get_db)
 ):
     """Update existing item (partial update)"""
     updated_item = crud.update_item(db, item_id, item_update)

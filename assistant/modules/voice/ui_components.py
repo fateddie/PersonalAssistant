@@ -14,25 +14,25 @@ def check_api_health(client) -> bool:
     """Check if API is available"""
     try:
         health = client.health_check()
-        return health['status'] == 'ok'
+        return health["status"] == "ok"
     except Exception:
         return False
 
 
 def add_to_google_calendar(item):
     """Generate Google Calendar link for an item."""
-    title = item.get('title', 'Event')
-    date_str = item.get('date', '')
-    start_time = item.get('start_time') or '09:00'
-    end_time = item.get('end_time') or '10:00'
-    location = item.get('location') or ''
-    description = item.get('description') or ''
+    title = item.get("title", "Event")
+    date_str = item.get("date", "")
+    start_time = item.get("start_time") or "09:00"
+    end_time = item.get("end_time") or "10:00"
+    location = item.get("location") or ""
+    description = item.get("description") or ""
 
     # Format dates for Google Calendar (YYYYMMDDTHHMMSS)
     if date_str and start_time:
-        date_clean = date_str.replace('-', '')
-        start_clean = start_time.replace(':', '') if ':' in start_time else start_time + '00'
-        end_clean = end_time.replace(':', '') if ':' in end_time else end_time + '00'
+        date_clean = date_str.replace("-", "")
+        start_clean = start_time.replace(":", "") if ":" in start_time else start_time + "00"
+        end_clean = end_time.replace(":", "") if ":" in end_time else end_time + "00"
         start_dt = f"{date_clean}T{start_clean}00"
         end_dt = f"{date_clean}T{end_clean}00"
     else:
@@ -40,11 +40,11 @@ def add_to_google_calendar(item):
 
     # URL encode parameters
     params = {
-        'action': 'TEMPLATE',
-        'text': title,
-        'dates': f"{start_dt}/{end_dt}",
-        'details': description,
-        'location': location,
+        "action": "TEMPLATE",
+        "text": title,
+        "dates": f"{start_dt}/{end_dt}",
+        "details": description,
+        "location": location,
     }
     base_url = "https://calendar.google.com/calendar/render"
     return f"{base_url}?{urllib.parse.urlencode(params)}"
@@ -56,13 +56,13 @@ TYPE_EMOJI = {
     "task": "✅",
     "goal": "🎯",
     "webinar": "📺",
-    "session": "⏰"
+    "session": "⏰",
 }
 
 
 def render_item_card(item, client, key_prefix=""):
     """Render a single item card"""
-    is_webinar = item.get('type') == 'webinar'
+    is_webinar = item.get("type") == "webinar"
 
     with st.container():
         # Extra column for webinars (calendar button)
@@ -73,40 +73,44 @@ def render_item_card(item, client, key_prefix=""):
 
         with col1:
             # Title (clickable if has URL)
-            title = item['title']
-            if item.get('gmail_thread_url'):
-                st.markdown(f"**{TYPE_EMOJI.get(item['type'], '📄')} [{title}]({item['gmail_thread_url']})**")
-            elif item.get('calendar_event_url'):
-                st.markdown(f"**{TYPE_EMOJI.get(item['type'], '📄')} [{title}]({item['calendar_event_url']})**")
+            title = item["title"]
+            if item.get("gmail_thread_url"):
+                st.markdown(
+                    f"**{TYPE_EMOJI.get(item['type'], '📄')} [{title}]({item['gmail_thread_url']})**"
+                )
+            elif item.get("calendar_event_url"):
+                st.markdown(
+                    f"**{TYPE_EMOJI.get(item['type'], '📄')} [{title}]({item['calendar_event_url']})**"
+                )
             else:
                 st.markdown(f"**{TYPE_EMOJI.get(item['type'], '📄')} {title}**")
 
             # Meta info
             meta_parts = []
-            if item.get('start_time'):
+            if item.get("start_time"):
                 meta_parts.append(f"🕐 {item['start_time']}")
-            if item.get('location'):
+            if item.get("location"):
                 meta_parts.append(f"📍 {item['location']}")
-            if item.get('participants'):
+            if item.get("participants"):
                 meta_parts.append(f"👤 {len(item['participants'])} participants")
 
             if meta_parts:
                 st.caption(" • ".join(meta_parts))
 
-            if item.get('description'):
-                st.caption(item['description'])
+            if item.get("description"):
+                st.caption(item["description"])
 
         with col2:
             # Type and status badges
             st.markdown(
                 f'<span class="badge badge-{item["type"]}">{item["type"]}</span>'
                 f'<span class="badge badge-{item["status"]}">{item["status"]}</span>',
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
-            if item.get('priority'):
+            if item.get("priority"):
                 st.markdown(
                     f'<span class="badge badge-{item["priority"]}">{item["priority"]}</span>',
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
 
         with col3:
@@ -119,8 +123,8 @@ def render_item_card(item, client, key_prefix=""):
             # Delete button - use session state to trigger rerun cleanly
             if st.button("🗑️ Delete", key=f"{key_prefix}_delete_{item['id']}"):
                 try:
-                    client.delete_item(item['id'])
-                    st.session_state['last_deleted'] = item['title']
+                    client.delete_item(item["id"])
+                    st.session_state["last_deleted"] = item["title"]
                     st.rerun()
                 except RerunException:
                     raise  # Let Streamlit handle the rerun
@@ -148,22 +152,22 @@ def _render_edit_form(item, client, key_prefix):
 
         col1, col2 = st.columns(2)
         with col1:
-            new_title = st.text_input("Title", value=item['title'])
+            new_title = st.text_input("Title", value=item["title"])
             new_status = st.selectbox(
                 "Status",
                 ["upcoming", "in_progress", "done", "overdue"],
-                index=["upcoming", "in_progress", "done", "overdue"].index(item['status'])
+                index=["upcoming", "in_progress", "done", "overdue"].index(item["status"]),
             )
 
         with col2:
-            new_date = st.date_input("Date", value=datetime.fromisoformat(str(item['date'])))
+            new_date = st.date_input("Date", value=datetime.fromisoformat(str(item["date"])))
             new_priority = st.selectbox(
                 "Priority",
                 [None, "low", "med", "high"],
-                index=[None, "low", "med", "high"].index(item.get('priority'))
+                index=[None, "low", "med", "high"].index(item.get("priority")),
             )
 
-        new_description = st.text_area("Description", value=item.get('description') or "")
+        new_description = st.text_area("Description", value=item.get("description") or "")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -178,9 +182,9 @@ def _render_edit_form(item, client, key_prefix):
                 if new_priority:
                     updates["priority"] = new_priority
                 try:
-                    client.update_item(item['id'], updates)
+                    client.update_item(item["id"], updates)
                     st.session_state[f"editing_{item['id']}"] = False
-                    st.session_state['last_updated'] = item['title']
+                    st.session_state["last_updated"] = item["title"]
                     st.rerun()
                 except RerunException:
                     raise

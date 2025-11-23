@@ -3,6 +3,7 @@ Assistant API
 =============
 FastAPI application for unified assistant item management
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,7 +18,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
-    description="Unified API for managing appointments, meetings, tasks, and goals"
+    description="Unified API for managing appointments, meetings, tasks, and goals",
 )
 
 # CORS middleware for Streamlit integration

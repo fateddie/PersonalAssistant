@@ -30,9 +30,11 @@ def render_add_form(item_type: str, client):
             # Get existing goals
             try:
                 goals_result = client.list_items(type=["goal"], limit=50)
-                goal_options = {g['title']: g['id'] for g in goals_result['items']}
+                goal_options = {g["title"]: g["id"] for g in goals_result["items"]}
                 if goal_options:
-                    selected_goal = st.selectbox("Goal", options=["None"] + list(goal_options.keys()))
+                    selected_goal = st.selectbox(
+                        "Goal", options=["None"] + list(goal_options.keys())
+                    )
                     if selected_goal != "None":
                         goal_id = goal_options[selected_goal]
                 else:

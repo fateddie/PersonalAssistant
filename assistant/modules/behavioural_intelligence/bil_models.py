@@ -16,6 +16,7 @@ class Goal(BaseModel):
 
 class GoalWithCalendar(BaseModel):
     """Goal with optional calendar integration"""
+
     name: str
     target_per_week: int
     description: Optional[str] = None

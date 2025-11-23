@@ -66,9 +66,7 @@ def create_goal_with_calendar(goal: GoalWithCalendar):
         if goal.recurring_days and goal.session_time_start and goal.session_time_end:
             # Validate calendar configuration
             validation = validate_calendar_config(
-                goal.recurring_days,
-                goal.session_time_start,
-                goal.session_time_end
+                goal.recurring_days, goal.session_time_start, goal.session_time_end
             )
 
             if not validation.get("valid"):
@@ -76,7 +74,7 @@ def create_goal_with_calendar(goal: GoalWithCalendar):
                 conn.rollback()
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid calendar configuration: {validation.get('error')}"
+                    detail=f"Invalid calendar configuration: {validation.get('error')}",
                 )
 
             # Save calendar config
@@ -103,7 +101,7 @@ def create_goal_with_calendar(goal: GoalWithCalendar):
                 "session_time_start": validation["formatted_start"],
                 "session_time_end": validation["formatted_end"],
                 "weeks_ahead": goal.weeks_ahead or 4,
-                "ready_for_calendar_creation": True
+                "ready_for_calendar_creation": True,
             }
 
     message = f"✅ Goal '{goal.name}' created - targeting {goal.target_per_week}x/week"
@@ -153,7 +151,7 @@ def list_goals(status: str = "active"):
                 "target_per_week": row[2],
                 "completed": row[3],
                 "last_update": row[4],
-                "status": row[5] if len(row) > 5 else "active"
+                "status": row[5] if len(row) > 5 else "active",
             }
 
             # Separate by status for detailed response
@@ -165,10 +163,14 @@ def list_goals(status: str = "active"):
         all_goals = active_goals + pending_goals
 
     return {
-        "goals": all_goals if status == "all" else (active_goals if status == "active" else pending_goals),
+        "goals": (
+            all_goals
+            if status == "all"
+            else (active_goals if status == "active" else pending_goals)
+        ),
         "pending_goals": pending_goals,
         "active_count": len(active_goals),
-        "pending_count": len(pending_goals)
+        "pending_count": len(pending_goals),
     }
 
 
@@ -238,8 +240,7 @@ def accept_goal(goal_id: int):
         # Check if goal exists
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT name, status FROM goals WHERE id = :goal_id"),
-                {"goal_id": goal_id}
+                text("SELECT name, status FROM goals WHERE id = :goal_id"), {"goal_id": goal_id}
             )
             row = result.fetchone()
 
@@ -251,12 +252,14 @@ def accept_goal(goal_id: int):
         # Update status to active
         with engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE goals
                     SET status = 'active'
                     WHERE id = :goal_id
-                """),
-                {"goal_id": goal_id}
+                """
+                ),
+                {"goal_id": goal_id},
             )
 
         print(f"✅ Goal accepted: {goal_name} (ID: {goal_id}) - {current_status} → active")
@@ -266,7 +269,7 @@ def accept_goal(goal_id: int):
             "goal_id": goal_id,
             "name": goal_name,
             "previous_status": current_status,
-            "new_status": "active"
+            "new_status": "active",
         }
 
     except HTTPException:
@@ -291,8 +294,7 @@ def reject_goal(goal_id: int):
         # Check if goal exists
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT name, status FROM goals WHERE id = :goal_id"),
-                {"goal_id": goal_id}
+                text("SELECT name, status FROM goals WHERE id = :goal_id"), {"goal_id": goal_id}
             )
             row = result.fetchone()
 
@@ -304,12 +306,14 @@ def reject_goal(goal_id: int):
         # Update status to rejected
         with engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE goals
                     SET status = 'rejected'
                     WHERE id = :goal_id
-                """),
-                {"goal_id": goal_id}
+                """
+                ),
+                {"goal_id": goal_id},
             )
 
         print(f"✅ Goal rejected: {goal_name} (ID: {goal_id}) - {current_status} → rejected")
@@ -319,7 +323,7 @@ def reject_goal(goal_id: int):
             "goal_id": goal_id,
             "name": goal_name,
             "previous_status": current_status,
-            "new_status": "rejected"
+            "new_status": "rejected",
         }
 
     except HTTPException:

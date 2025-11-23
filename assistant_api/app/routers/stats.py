@@ -3,6 +3,7 @@ Stats Router
 ============
 Dashboard statistics endpoints
 """
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -25,32 +26,28 @@ def get_stats_summary(db: Session = Depends(get_db)):
     - today: Stats for items scheduled today
     """
     # Count by type
-    type_counts = db.query(
-        models.AssistantItem.type,
-        func.count(models.AssistantItem.id)
-    ).group_by(models.AssistantItem.type).all()
+    type_counts = (
+        db.query(models.AssistantItem.type, func.count(models.AssistantItem.id))
+        .group_by(models.AssistantItem.type)
+        .all()
+    )
 
     count_by_type = {str(item_type): count for item_type, count in type_counts}
 
     # Count by status
-    status_counts = db.query(
-        models.AssistantItem.status,
-        func.count(models.AssistantItem.id)
-    ).group_by(models.AssistantItem.status).all()
+    status_counts = (
+        db.query(models.AssistantItem.status, func.count(models.AssistantItem.id))
+        .group_by(models.AssistantItem.status)
+        .all()
+    )
 
     count_by_status = {str(status): count for status, count in status_counts}
 
     # Today's items
     today = date.today()
-    today_items = db.query(models.AssistantItem).filter(
-        models.AssistantItem.date == today
-    ).all()
+    today_items = db.query(models.AssistantItem).filter(models.AssistantItem.date == today).all()
 
-    today_stats = {
-        "total": len(today_items),
-        "by_type": {},
-        "by_status": {}
-    }
+    today_stats = {"total": len(today_items), "by_type": {}, "by_status": {}}
 
     # Group today's items by type and status
     for item in today_items:
@@ -65,5 +62,5 @@ def get_stats_summary(db: Session = Depends(get_db)):
     return {
         "count_by_type": count_by_type,
         "count_by_status": count_by_status,
-        "today": today_stats
+        "today": today_stats,
     }

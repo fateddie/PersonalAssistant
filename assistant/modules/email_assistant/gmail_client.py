@@ -43,8 +43,8 @@ class GmailClient:
 
     def __init__(self):
         self.scopes = [
-            'https://www.googleapis.com/auth/gmail.readonly',
-            'https://www.googleapis.com/auth/gmail.modify',
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.modify",
         ]
         self.service = None
         self.rate_limiter = RateLimiter(max_calls=100, period=60)
@@ -61,18 +61,18 @@ class GmailClient:
 
             # Load existing token
             if TOKEN_FILE.exists():
-                with open(TOKEN_FILE, 'r') as token:
+                with open(TOKEN_FILE, "r") as token:
                     creds_data = json.load(token)
                     creds = Credentials.from_authorized_user_info(creds_data, self.scopes)
 
             # Refresh if expired
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
-                with open(TOKEN_FILE, 'w') as token:
+                with open(TOKEN_FILE, "w") as token:
                     token.write(creds.to_json())
 
             if creds and creds.valid:
-                self.service = build('gmail', 'v1', credentials=creds)
+                self.service = build("gmail", "v1", credentials=creds)
                 print("✅ Gmail API service initialized")
             else:
                 print("⚠️  Gmail not authenticated. Run OAuth flow first.")
@@ -86,7 +86,7 @@ class GmailClient:
         """Check if Gmail API is authenticated"""
         return self.service is not None
 
-    def list_emails(self, query: str = '', max_results: int = 20) -> List[Dict]:
+    def list_emails(self, query: str = "", max_results: int = 20) -> List[Dict]:
         """
         List emails matching query.
 
@@ -104,36 +104,44 @@ class GmailClient:
         try:
             from googleapiclient.errors import HttpError
 
-            results = self.service.users().messages().list(
-                userId='me',
-                q=query,
-                maxResults=max_results
-            ).execute()
+            results = (
+                self.service.users()
+                .messages()
+                .list(userId="me", q=query, maxResults=max_results)
+                .execute()
+            )
 
-            messages = results.get('messages', [])
+            messages = results.get("messages", [])
             emails = []
 
             for msg in messages:
                 self.rate_limiter.wait_if_needed()
-                metadata = self.service.users().messages().get(
-                    userId='me',
-                    id=msg['id'],
-                    format='metadata',
-                    metadataHeaders=['From', 'Subject', 'Date']
-                ).execute()
+                metadata = (
+                    self.service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg["id"],
+                        format="metadata",
+                        metadataHeaders=["From", "Subject", "Date"],
+                    )
+                    .execute()
+                )
 
-                headers = {h['name']: h['value'] for h in metadata['payload']['headers']}
-                labels = metadata.get('labelIds', [])
+                headers = {h["name"]: h["value"] for h in metadata["payload"]["headers"]}
+                labels = metadata.get("labelIds", [])
 
-                emails.append({
-                    'id': msg['id'],
-                    'thread_id': msg['threadId'],
-                    'subject': headers.get('Subject', '(No subject)'),
-                    'from': headers.get('From', ''),
-                    'date': headers.get('Date', ''),
-                    'is_unread': 'UNREAD' in labels,
-                    'is_starred': 'STARRED' in labels,
-                })
+                emails.append(
+                    {
+                        "id": msg["id"],
+                        "thread_id": msg["threadId"],
+                        "subject": headers.get("Subject", "(No subject)"),
+                        "from": headers.get("From", ""),
+                        "date": headers.get("Date", ""),
+                        "is_unread": "UNREAD" in labels,
+                        "is_starred": "STARRED" in labels,
+                    }
+                )
 
             return emails
 
@@ -154,50 +162,51 @@ class GmailClient:
         }
         """
         if not self.service:
-            return {'error': 'Gmail not authenticated'}
+            return {"error": "Gmail not authenticated"}
 
         self.rate_limiter.wait_if_needed()
 
         try:
-            message = self.service.users().messages().get(
-                userId='me',
-                id=message_id,
-                format='full'
-            ).execute()
+            message = (
+                self.service.users()
+                .messages()
+                .get(userId="me", id=message_id, format="full")
+                .execute()
+            )
 
             # Parse headers
-            headers = {h['name']: h['value'] for h in message['payload']['headers']}
+            headers = {h["name"]: h["value"] for h in message["payload"]["headers"]}
 
             # Extract body
-            body_text = ''
-            body_html = ''
+            body_text = ""
+            body_html = ""
 
             def extract_body(payload):
                 nonlocal body_text, body_html
-                if 'parts' in payload:
-                    for part in payload['parts']:
+                if "parts" in payload:
+                    for part in payload["parts"]:
                         extract_body(part)
-                elif 'body' in payload and 'data' in payload['body']:
-                    data = payload['body']['data']
-                    decoded = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
-                    if payload.get('mimeType') == 'text/plain':
+                elif "body" in payload and "data" in payload["body"]:
+                    data = payload["body"]["data"]
+                    decoded = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                    if payload.get("mimeType") == "text/plain":
                         body_text = decoded
-                    elif payload.get('mimeType') == 'text/html':
+                    elif payload.get("mimeType") == "text/html":
                         body_html = decoded
 
-            extract_body(message['payload'])
+            extract_body(message["payload"])
 
             return {
-                'body_text': body_text,
-                'body_html': body_html,
-                'subject': headers.get('Subject', ''),
-                'from': headers.get('From', ''),
-                'date': headers.get('Date', ''),
+                "body_text": body_text,
+                "body_html": body_html,
+                "subject": headers.get("Subject", ""),
+                "from": headers.get("From", ""),
+                "date": headers.get("Date", ""),
             }
 
         except Exception as e:
             print(f"❌ Error fetching email {message_id}: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
 
     def search_by_category(self, category: str, max_results: int = 10) -> List[Dict]:
         """
@@ -206,13 +215,13 @@ class GmailClient:
         Categories: trading, education, newsletter, tech, personal
         """
         category_queries = {
-            'trading': 'from:(seekingalpha OR investorplace OR theotrade OR danelfin OR behindthemarkets)',
-            'education': 'from:(berkeley OR coursera OR edx OR udemy OR academia)',
-            'newsletter': 'from:(substack OR beehiiv OR mailchimp) OR subject:newsletter',
-            'tech': 'from:(github OR gitguardian OR techpresso)',
-            'personal': 'is:important -from:(noreply OR newsletter)',
-            'unread': 'is:unread',
-            'starred': 'is:starred',
+            "trading": "from:(seekingalpha OR investorplace OR theotrade OR danelfin OR behindthemarkets)",
+            "education": "from:(berkeley OR coursera OR edx OR udemy OR academia)",
+            "newsletter": "from:(substack OR beehiiv OR mailchimp) OR subject:newsletter",
+            "tech": "from:(github OR gitguardian OR techpresso)",
+            "personal": "is:important -from:(noreply OR newsletter)",
+            "unread": "is:unread",
+            "starred": "is:starred",
         }
 
         query = category_queries.get(category.lower(), category)
@@ -227,9 +236,7 @@ class GmailClient:
 
         try:
             self.service.users().messages().modify(
-                userId='me',
-                id=message_id,
-                body={'removeLabelIds': ['INBOX']}
+                userId="me", id=message_id, body={"removeLabelIds": ["INBOX"]}
             ).execute()
             print(f"✅ Archived email {message_id}")
             return True
@@ -246,10 +253,7 @@ class GmailClient:
         self.rate_limiter.wait_if_needed()
 
         try:
-            self.service.users().messages().trash(
-                userId='me',
-                id=message_id
-            ).execute()
+            self.service.users().messages().trash(userId="me", id=message_id).execute()
             print(f"✅ Trashed email {message_id}")
             return True
 
@@ -265,10 +269,7 @@ class GmailClient:
         self.rate_limiter.wait_if_needed()
 
         try:
-            self.service.users().messages().delete(
-                userId='me',
-                id=message_id
-            ).execute()
+            self.service.users().messages().delete(userId="me", id=message_id).execute()
             print(f"✅ Permanently deleted email {message_id}")
             return True
 
@@ -285,9 +286,7 @@ class GmailClient:
 
         try:
             self.service.users().messages().modify(
-                userId='me',
-                id=message_id,
-                body={'removeLabelIds': ['UNREAD']}
+                userId="me", id=message_id, body={"removeLabelIds": ["UNREAD"]}
             ).execute()
             return True
 
@@ -304,9 +303,7 @@ class GmailClient:
 
         try:
             self.service.users().messages().modify(
-                userId='me',
-                id=message_id,
-                body={'addLabelIds': ['UNREAD']}
+                userId="me", id=message_id, body={"addLabelIds": ["UNREAD"]}
             ).execute()
             return True
 
@@ -323,9 +320,7 @@ class GmailClient:
 
         try:
             self.service.users().messages().modify(
-                userId='me',
-                id=message_id,
-                body={'addLabelIds': ['STARRED']}
+                userId="me", id=message_id, body={"addLabelIds": ["STARRED"]}
             ).execute()
             print(f"✅ Starred email {message_id}")
             return True
@@ -343,9 +338,7 @@ class GmailClient:
 
         try:
             self.service.users().messages().modify(
-                userId='me',
-                id=message_id,
-                body={'removeLabelIds': ['STARRED']}
+                userId="me", id=message_id, body={"removeLabelIds": ["STARRED"]}
             ).execute()
             return True
 
@@ -364,19 +357,25 @@ class GmailClient:
         self.rate_limiter.wait_if_needed()
 
         try:
-            message = self.service.users().messages().get(
-                userId='me',
-                id=message_id,
-                format='metadata',
-                metadataHeaders=['List-Unsubscribe']
-            ).execute()
+            message = (
+                self.service.users()
+                .messages()
+                .get(
+                    userId="me",
+                    id=message_id,
+                    format="metadata",
+                    metadataHeaders=["List-Unsubscribe"],
+                )
+                .execute()
+            )
 
-            headers = {h['name']: h['value'] for h in message['payload']['headers']}
-            unsubscribe = headers.get('List-Unsubscribe', '')
+            headers = {h["name"]: h["value"] for h in message["payload"]["headers"]}
+            unsubscribe = headers.get("List-Unsubscribe", "")
 
             # Parse the header (usually contains <mailto:...> or <http://...>)
             import re
-            http_match = re.search(r'<(https?://[^>]+)>', unsubscribe)
+
+            http_match = re.search(r"<(https?://[^>]+)>", unsubscribe)
             if http_match:
                 return http_match.group(1)
 

@@ -60,6 +60,7 @@ def auto_scan_emails():
 # Import starts module load
 load_modules()
 
+
 # Start background email scanner and scheduler on startup
 @app.on_event("startup")
 async def startup_event():
@@ -69,4 +70,5 @@ async def startup_event():
     Thread(target=auto_scan_emails, daemon=True).start()
     # Start scheduler for periodic tasks (email sync every 30 min)
     from assistant.core.scheduler import start_scheduler
+
     start_scheduler()

@@ -31,6 +31,7 @@ load_dotenv(PROJECT_ROOT / "config" / ".env")
 try:
     from supabase import create_client, Client
     from openai import OpenAI
+
     DEPENDENCIES_AVAILABLE = True
 except ImportError:
     DEPENDENCIES_AVAILABLE = False
@@ -96,10 +97,7 @@ def generate_embedding(text: str) -> List[float]:
     """
     client = _get_openai_client()
 
-    response = client.embeddings.create(
-        model="text-embedding-ada-002",
-        input=text
-    )
+    response = client.embeddings.create(model="text-embedding-ada-002", input=text)
 
     return response.data[0].embedding
 
@@ -111,7 +109,7 @@ def store_task_with_context(
     importance: int = 3,
     effort: int = 3,
     project_reference: Optional[str] = None,
-    due_date: Optional[date] = None
+    due_date: Optional[date] = None,
 ) -> int:
     """
     Store task with semantic memory for cross-system intelligence.
@@ -152,19 +150,25 @@ def store_task_with_context(
         "urgency": urgency,
         "importance": importance,
         "effort": effort,
-        "rice_score": (urgency * importance) / effort if effort > 0 else 0
+        "rice_score": (urgency * importance) / effort if effort > 0 else 0,
     }
 
     # Store in long_term_memory
-    memory_result = supabase.table("long_term_memory").insert({
-        "content": content,
-        "embedding": embedding,
-        "source_system": "asksharon",
-        "entity_type": "task",
-        "entity_id": title,
-        "user_id": "rob",
-        "metadata": metadata
-    }).execute()
+    memory_result = (
+        supabase.table("long_term_memory")
+        .insert(
+            {
+                "content": content,
+                "embedding": embedding,
+                "source_system": "asksharon",
+                "entity_type": "task",
+                "entity_id": title,
+                "user_id": "rob",
+                "metadata": metadata,
+            }
+        )
+        .execute()
+    )
 
     if not memory_result.data:
         raise Exception("Failed to store memory in Supabase")
@@ -179,7 +183,7 @@ def store_task_with_context(
         "importance": importance,
         "effort": effort,
         "project_reference": project_reference,
-        "memory_id": memory_id
+        "memory_id": memory_id,
     }
 
     if due_date:
@@ -192,9 +196,7 @@ def store_task_with_context(
 
 
 def find_related_business_projects(
-    task_description: str,
-    limit: int = 5,
-    min_similarity: float = 0.7
+    task_description: str, limit: int = 5, min_similarity: float = 0.7
 ) -> List[Dict]:
     """
     Search ManagementTeam projects related to this task.
@@ -222,8 +224,8 @@ def find_related_business_projects(
             "match_threshold": min_similarity,
             "match_count": limit,
             "filter_source_system": "management_team",
-            "filter_entity_type": "project_decision"
-        }
+            "filter_entity_type": "project_decision",
+        },
     ).execute()
 
     return result.data if result.data else []
@@ -242,9 +244,7 @@ def get_tasks_for_project(project_name: str, include_completed: bool = False) ->
     """
     supabase = _get_supabase_client()
 
-    query = supabase.table("user_tasks")\
-        .select("*")\
-        .eq("project_reference", project_name)
+    query = supabase.table("user_tasks").select("*").eq("project_reference", project_name)
 
     if not include_completed:
         query = query.eq("completed", False)
@@ -265,12 +265,14 @@ def get_my_active_tasks(limit: int = 20) -> List[Dict]:
     """
     supabase = _get_supabase_client()
 
-    result = supabase.table("user_tasks")\
-        .select("*")\
-        .eq("completed", False)\
-        .order("urgency", desc=True)\
-        .limit(limit)\
+    result = (
+        supabase.table("user_tasks")
+        .select("*")
+        .eq("completed", False)
+        .order("urgency", desc=True)
+        .limit(limit)
         .execute()
+    )
 
     return result.data if result.data else []
 
@@ -287,13 +289,12 @@ def complete_task(task_id: int) -> bool:
     """
     supabase = _get_supabase_client()
 
-    result = supabase.table("user_tasks")\
-        .update({
-            "completed": True,
-            "completed_at": datetime.now().isoformat()
-        })\
-        .eq("id", task_id)\
+    result = (
+        supabase.table("user_tasks")
+        .update({"completed": True, "completed_at": datetime.now().isoformat()})
+        .eq("id", task_id)
         .execute()
+    )
 
     if result.data:
         print(f"✅ Task {task_id} completed")
@@ -316,28 +317,33 @@ def link_task_to_project(task_id: int, project_name: str, relationship: str = "i
     supabase = _get_supabase_client()
 
     # Get memory IDs
-    task_memory = supabase.table("user_tasks")\
-        .select("memory_id")\
-        .eq("id", task_id)\
-        .execute()
+    task_memory = supabase.table("user_tasks").select("memory_id").eq("id", task_id).execute()
 
-    project_memory = supabase.table("project_decisions")\
-        .select("memory_id")\
-        .eq("project_name", project_name)\
-        .order("created_at", desc=True)\
-        .limit(1)\
+    project_memory = (
+        supabase.table("project_decisions")
+        .select("memory_id")
+        .eq("project_name", project_name)
+        .order("created_at", desc=True)
+        .limit(1)
         .execute()
+    )
 
     if not task_memory.data or not project_memory.data:
         raise ValueError(f"Task {task_id} or project '{project_name}' not found")
 
     # Create link
-    link_result = supabase.table("memory_links").insert({
-        "memory_id_1": task_memory.data[0]["memory_id"],
-        "memory_id_2": project_memory.data[0]["memory_id"],
-        "relationship_type": relationship,
-        "confidence": 0.9
-    }).execute()
+    link_result = (
+        supabase.table("memory_links")
+        .insert(
+            {
+                "memory_id_1": task_memory.data[0]["memory_id"],
+                "memory_id_2": project_memory.data[0]["memory_id"],
+                "relationship_type": relationship,
+                "confidence": 0.9,
+            }
+        )
+        .execute()
+    )
 
     link_id = link_result.data[0]["id"]
     print(f"✅ Linked task {task_id} → project '{project_name}'")
@@ -357,12 +363,14 @@ def get_project_context(project_name: str) -> Dict[str, Any]:
     supabase = _get_supabase_client()
 
     # Get project decision
-    project = supabase.table("project_decisions")\
-        .select("*")\
-        .eq("project_name", project_name)\
-        .order("created_at", desc=True)\
-        .limit(1)\
+    project = (
+        supabase.table("project_decisions")
+        .select("*")
+        .eq("project_name", project_name)
+        .order("created_at", desc=True)
+        .limit(1)
         .execute()
+    )
 
     if not project.data:
         return {"error": f"Project '{project_name}' not found"}
@@ -376,8 +384,8 @@ def get_project_context(project_name: str) -> Dict[str, Any]:
             "total": len(tasks),
             "pending": len([t for t in tasks if not t["completed"]]),
             "completed": len([t for t in tasks if t["completed"]]),
-            "list": tasks
-        }
+            "list": tasks,
+        },
     }
 
 
@@ -402,8 +410,8 @@ def search_my_memories(query: str, limit: int = 10) -> List[Dict]:
             "match_threshold": 0.6,
             "match_count": limit,
             "filter_source_system": "asksharon",
-            "filter_entity_type": None
-        }
+            "filter_entity_type": None,
+        },
     ).execute()
 
     return result.data if result.data else []
@@ -412,4 +420,5 @@ def search_my_memories(query: str, limit: int = 10) -> List[Dict]:
 # CLI entry point moved to supabase_cli.py
 if __name__ == "__main__":
     from .supabase_cli import main
+
     main()

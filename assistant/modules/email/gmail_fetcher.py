@@ -13,7 +13,12 @@ from typing import Dict, List, Any, Optional
 from pathlib import Path
 from dotenv import load_dotenv
 
-from .email_parser import decode_email_header, extract_email_body, count_attachments, parse_email_address
+from .email_parser import (
+    decode_email_header,
+    extract_email_body,
+    count_attachments,
+    parse_email_address,
+)
 from .database import store_email
 from .priority import calculate_priority
 

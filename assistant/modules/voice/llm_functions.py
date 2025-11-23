@@ -68,15 +68,35 @@ FUNCTIONS = [
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "The name/title of the goal"},
-                "days": {"type": "array", "items": {"type": "integer"}, "description": "Days of the week as numbers (0=Monday, 1=Tuesday, ..., 6=Sunday)"},
-                "start_time": {"type": "string", "description": "Start time in 24h format (e.g., '07:30')"},
-                "end_time": {"type": "string", "description": "End time in 24h format (e.g., '09:00')"},
-                "end_date": {"type": "string", "description": "End date for recurring sessions. Can be YYYY-MM-DD, or natural language like '6 months', '3 months', 'december', 'june 2025'. Default is 6 months if not specified."},
-                "category": {"type": "string", "enum": ["educational", "fitness", "work", "personal", "creative", "other"], "description": "Category of the goal"},
-                "needs_confirmation": {"type": "boolean", "description": "Whether to ask user for confirmation before creating"}
+                "days": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Days of the week as numbers (0=Monday, 1=Tuesday, ..., 6=Sunday)",
+                },
+                "start_time": {
+                    "type": "string",
+                    "description": "Start time in 24h format (e.g., '07:30')",
+                },
+                "end_time": {
+                    "type": "string",
+                    "description": "End time in 24h format (e.g., '09:00')",
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "End date for recurring sessions. Can be YYYY-MM-DD, or natural language like '6 months', '3 months', 'december', 'june 2025'. Default is 6 months if not specified.",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["educational", "fitness", "work", "personal", "creative", "other"],
+                    "description": "Category of the goal",
+                },
+                "needs_confirmation": {
+                    "type": "boolean",
+                    "description": "Whether to ask user for confirmation before creating",
+                },
             },
-            "required": ["title", "days", "start_time", "end_time"]
-        }
+            "required": ["title", "days", "start_time", "end_time"],
+        },
     },
     {
         "name": "create_goal",
@@ -85,11 +105,18 @@ FUNCTIONS = [
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "The name/title of the goal"},
-                "category": {"type": "string", "enum": ["educational", "fitness", "work", "personal", "creative", "other"], "description": "Category of the goal"},
-                "needs_confirmation": {"type": "boolean", "description": "Whether to ask user for confirmation"}
+                "category": {
+                    "type": "string",
+                    "enum": ["educational", "fitness", "work", "personal", "creative", "other"],
+                    "description": "Category of the goal",
+                },
+                "needs_confirmation": {
+                    "type": "boolean",
+                    "description": "Whether to ask user for confirmation",
+                },
             },
-            "required": ["title"]
-        }
+            "required": ["title"],
+        },
     },
     {
         "name": "create_task",
@@ -98,10 +125,13 @@ FUNCTIONS = [
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "The name/title of the task"},
-                "needs_confirmation": {"type": "boolean", "description": "Whether to ask user for confirmation"}
+                "needs_confirmation": {
+                    "type": "boolean",
+                    "description": "Whether to ask user for confirmation",
+                },
             },
-            "required": ["title"]
-        }
+            "required": ["title"],
+        },
     },
     {
         "name": "create_task_with_calendar",
@@ -110,13 +140,25 @@ FUNCTIONS = [
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "The name/title of the task"},
-                "date": {"type": "string", "description": "Date in YYYY-MM-DD format, or 'today' or 'tomorrow'"},
-                "start_time": {"type": "string", "description": "Start time in 24h format (e.g., '14:00')"},
-                "end_time": {"type": "string", "description": "End time in 24h format (e.g., '15:00')"},
-                "needs_confirmation": {"type": "boolean", "description": "Whether to ask user for confirmation"}
+                "date": {
+                    "type": "string",
+                    "description": "Date in YYYY-MM-DD format, or 'today' or 'tomorrow'",
+                },
+                "start_time": {
+                    "type": "string",
+                    "description": "Start time in 24h format (e.g., '14:00')",
+                },
+                "end_time": {
+                    "type": "string",
+                    "description": "End time in 24h format (e.g., '15:00')",
+                },
+                "needs_confirmation": {
+                    "type": "boolean",
+                    "description": "Whether to ask user for confirmation",
+                },
             },
-            "required": ["title", "start_time", "end_time"]
-        }
+            "required": ["title", "start_time", "end_time"],
+        },
     },
     {
         "name": "show_items",
@@ -124,20 +166,24 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "view": {"type": "string", "enum": ["today", "goals", "tasks", "upcoming"], "description": "What to show"}
+                "view": {
+                    "type": "string",
+                    "enum": ["today", "goals", "tasks", "upcoming"],
+                    "description": "What to show",
+                }
             },
-            "required": ["view"]
-        }
+            "required": ["view"],
+        },
     },
     {
         "name": "check_emails",
         "description": "Check and summarize the user's emails",
-        "parameters": {"type": "object", "properties": {}}
+        "parameters": {"type": "object", "properties": {}},
     },
     {
         "name": "daily_summary",
         "description": "Get a comprehensive daily overview of tasks, goals, and schedule",
-        "parameters": {"type": "object", "properties": {}}
+        "parameters": {"type": "object", "properties": {}},
     },
     {
         "name": "confirm_action",
@@ -145,10 +191,13 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "confirmed": {"type": "boolean", "description": "True if user confirmed, False if canceled"}
+                "confirmed": {
+                    "type": "boolean",
+                    "description": "True if user confirmed, False if canceled",
+                }
             },
-            "required": ["confirmed"]
-        }
+            "required": ["confirmed"],
+        },
     },
     {
         "name": "ask_for_info",
@@ -156,11 +205,24 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "info_needed": {"type": "string", "enum": ["goal_name", "task_name", "days", "time", "category", "calendar_preference", "email_id", "end_date"], "description": "What information is needed"},
-                "context": {"type": "object", "description": "Any partial data collected so far"}
+                "info_needed": {
+                    "type": "string",
+                    "enum": [
+                        "goal_name",
+                        "task_name",
+                        "days",
+                        "time",
+                        "category",
+                        "calendar_preference",
+                        "email_id",
+                        "end_date",
+                    ],
+                    "description": "What information is needed",
+                },
+                "context": {"type": "object", "description": "Any partial data collected so far"},
             },
-            "required": ["info_needed"]
-        }
+            "required": ["info_needed"],
+        },
     },
     # EMAIL FUNCTIONS
     {
@@ -169,11 +231,29 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "category": {"type": "string", "enum": ["trading", "education", "newsletter", "tech", "personal", "unread", "starred"], "description": "Email category to filter by"},
-                "query": {"type": "string", "description": "Gmail search query (e.g., 'from:berkeley' or 'subject:urgent')"},
-                "max_results": {"type": "integer", "description": "Maximum number of emails to return (default 10)"}
-            }
-        }
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        "trading",
+                        "education",
+                        "newsletter",
+                        "tech",
+                        "personal",
+                        "unread",
+                        "starred",
+                    ],
+                    "description": "Email category to filter by",
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Gmail search query (e.g., 'from:berkeley' or 'subject:urgent')",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of emails to return (default 10)",
+                },
+            },
+        },
     },
     {
         "name": "fetch_new_emails",
@@ -181,9 +261,12 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "max_results": {"type": "integer", "description": "Maximum number of emails to fetch (default 20)"}
-            }
-        }
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of emails to fetch (default 20)",
+                }
+            },
+        },
     },
     {
         "name": "archive_email",
@@ -192,10 +275,13 @@ FUNCTIONS = [
             "type": "object",
             "properties": {
                 "email_id": {"type": "string", "description": "The Gmail message ID to archive"},
-                "email_subject": {"type": "string", "description": "Subject of the email (for confirmation)"}
+                "email_subject": {
+                    "type": "string",
+                    "description": "Subject of the email (for confirmation)",
+                },
             },
-            "required": ["email_id"]
-        }
+            "required": ["email_id"],
+        },
     },
     {
         "name": "delete_email",
@@ -204,10 +290,13 @@ FUNCTIONS = [
             "type": "object",
             "properties": {
                 "email_id": {"type": "string", "description": "The Gmail message ID to delete"},
-                "email_subject": {"type": "string", "description": "Subject of the email (for confirmation)"}
+                "email_subject": {
+                    "type": "string",
+                    "description": "Subject of the email (for confirmation)",
+                },
             },
-            "required": ["email_id"]
-        }
+            "required": ["email_id"],
+        },
     },
     {
         "name": "mark_email_read",
@@ -215,8 +304,8 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {"email_id": {"type": "string", "description": "The Gmail message ID"}},
-            "required": ["email_id"]
-        }
+            "required": ["email_id"],
+        },
     },
     {
         "name": "mark_email_unread",
@@ -224,8 +313,8 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {"email_id": {"type": "string", "description": "The Gmail message ID"}},
-            "required": ["email_id"]
-        }
+            "required": ["email_id"],
+        },
     },
     {
         "name": "star_email",
@@ -233,8 +322,8 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {"email_id": {"type": "string", "description": "The Gmail message ID"}},
-            "required": ["email_id"]
-        }
+            "required": ["email_id"],
+        },
     },
     {
         "name": "detect_email_events",
@@ -242,9 +331,12 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "max_emails": {"type": "integer", "description": "Maximum emails to scan (default 50)"}
-            }
-        }
+                "max_emails": {
+                    "type": "integer",
+                    "description": "Maximum emails to scan (default 50)",
+                }
+            },
+        },
     },
     {
         "name": "list_pending_events",
@@ -253,17 +345,19 @@ FUNCTIONS = [
             "type": "object",
             "properties": {
                 "limit": {"type": "integer", "description": "Maximum events to return (default 20)"}
-            }
-        }
+            },
+        },
     },
     {
         "name": "approve_event",
         "description": "Approve a detected event from email to add to calendar",
         "parameters": {
             "type": "object",
-            "properties": {"event_id": {"type": "string", "description": "The event ID to approve"}},
-            "required": ["event_id"]
-        }
+            "properties": {
+                "event_id": {"type": "string", "description": "The event ID to approve"}
+            },
+            "required": ["event_id"],
+        },
     },
     {
         "name": "reject_event",
@@ -271,8 +365,8 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {"event_id": {"type": "string", "description": "The event ID to reject"}},
-            "required": ["event_id"]
-        }
+            "required": ["event_id"],
+        },
     },
     # CALENDAR FUNCTIONS
     {
@@ -281,14 +375,17 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "max_results": {"type": "integer", "description": "Maximum number of events to return (default 10)"}
-            }
-        }
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of events to return (default 10)",
+                }
+            },
+        },
     },
     {
         "name": "calendar_status",
         "description": "Check Google Calendar connection status (is it authenticated and working)",
-        "parameters": {"type": "object", "properties": {}}
+        "parameters": {"type": "object", "properties": {}},
     },
     {
         "name": "check_calendar_conflicts",
@@ -296,20 +393,28 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "start_time": {"type": "string", "description": "Start time in ISO format (e.g., '2024-01-15T09:00:00')"},
-                "end_time": {"type": "string", "description": "End time in ISO format"}
+                "start_time": {
+                    "type": "string",
+                    "description": "Start time in ISO format (e.g., '2024-01-15T09:00:00')",
+                },
+                "end_time": {"type": "string", "description": "End time in ISO format"},
             },
-            "required": ["start_time", "end_time"]
-        }
+            "required": ["start_time", "end_time"],
+        },
     },
     {
         "name": "hide_calendar_event",
         "description": "Hide a calendar event from display (doesn't delete from Google Calendar)",
         "parameters": {
             "type": "object",
-            "properties": {"event_id": {"type": "string", "description": "The Google Calendar event ID to hide"}},
-            "required": ["event_id"]
-        }
+            "properties": {
+                "event_id": {
+                    "type": "string",
+                    "description": "The Google Calendar event ID to hide",
+                }
+            },
+            "required": ["event_id"],
+        },
     },
     {
         "name": "delete_calendar_event",
@@ -317,9 +422,15 @@ FUNCTIONS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "event_id": {"type": "string", "description": "Specific Google Calendar event ID to delete"},
-                "event_title": {"type": "string", "description": "Event title/name to search and delete (will delete all matching events)"}
-            }
-        }
-    }
+                "event_id": {
+                    "type": "string",
+                    "description": "Specific Google Calendar event ID to delete",
+                },
+                "event_title": {
+                    "type": "string",
+                    "description": "Event title/name to search and delete (will delete all matching events)",
+                },
+            },
+        },
+    },
 ]

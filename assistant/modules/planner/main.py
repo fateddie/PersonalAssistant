@@ -37,6 +37,7 @@ class Task(BaseModel):
 
 class TaskUpdate(BaseModel):
     """Partial update model - all fields optional"""
+
     title: str | None = None
     urgency: int | None = None
     importance: int | None = None
@@ -69,12 +70,14 @@ def add_task(task: Task):
     try:
         with engine.begin() as conn:
             result = conn.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO tasks (title, urgency, importance, effort, completed,
                                      deadline, project, category, notes, tags, context)
                     VALUES (:title, :urgency, :importance, :effort, 0,
                            :deadline, :project, :category, :notes, :tags, :context)
-                """),
+                """
+                ),
                 {
                     "title": task.title,
                     "urgency": task.urgency,
@@ -85,8 +88,8 @@ def add_task(task: Task):
                     "category": task.category,
                     "notes": task.notes,
                     "tags": task.tags,
-                    "context": task.context
-                }
+                    "context": task.context,
+                },
             )
             task_id = result.lastrowid
 
@@ -107,8 +110,8 @@ def add_task(task: Task):
                 "category": task.category,
                 "notes": task.notes,
                 "tags": task.tags,
-                "context": task.context
-            }
+                "context": task.context,
+            },
         }
 
     except Exception as e:
@@ -144,12 +147,14 @@ def list_tasks(status: str = "active"):
 
         with engine.connect() as conn:
             result = conn.execute(
-                text(f"""
+                text(
+                    f"""
                     SELECT id, title, urgency, importance, effort, status
                     FROM tasks
                     {where_clause}
                     ORDER BY created_at DESC
-                """)
+                """
+                )
             )
             tasks = result.fetchall()
 
@@ -164,7 +169,7 @@ def list_tasks(status: str = "active"):
                 "urgency": row[2],
                 "importance": row[3],
                 "effort": row[4],
-                "status": row[5]
+                "status": row[5],
             }
 
             if row[5] == "active":
@@ -177,16 +182,14 @@ def list_tasks(status: str = "active"):
                 "prioritised_tasks": [],
                 "pending_tasks": [],
                 "active_count": 0,
-                "pending_count": 0
+                "pending_count": 0,
             }
 
         # Calculate priority scores for active tasks
         scored = [
-            (
-                row[1],  # title
-                (row[3] * 0.6) + (row[2] * 0.3) - (row[4] * 0.1)  # priority score
-            )
-            for row in tasks if row[5] == "active" or status == "all"
+            (row[1], (row[3] * 0.6) + (row[2] * 0.3) - (row[4] * 0.1))  # title  # priority score
+            for row in tasks
+            if row[5] == "active" or status == "all"
         ]
 
         # Sort by priority (highest first)
@@ -196,7 +199,7 @@ def list_tasks(status: str = "active"):
             "prioritised_tasks": sorted_tasks,
             "pending_tasks": pending_tasks,
             "active_count": len(active_tasks),
-            "pending_count": len(pending_tasks)
+            "pending_count": len(pending_tasks),
         }
 
     except Exception as e:
@@ -231,23 +234,27 @@ def update_task(task_id: int, updates: TaskUpdate):
         # Execute UPDATE
         with engine.begin() as conn:
             conn.execute(
-                text(f"""
+                text(
+                    f"""
                     UPDATE tasks
                     SET {', '.join(update_fields)}
                     WHERE id = :task_id
-                """),
-                update_values
+                """
+                ),
+                update_values,
             )
 
             # Fetch updated task
             result = conn.execute(
-                text("""
+                text(
+                    """
                     SELECT id, title, urgency, importance, effort, completed,
                            deadline, project, category, notes, tags, context
                     FROM tasks
                     WHERE id = :task_id
-                """),
-                {"task_id": task_id}
+                """
+                ),
+                {"task_id": task_id},
             )
             row = result.fetchone()
 
@@ -271,8 +278,8 @@ def update_task(task_id: int, updates: TaskUpdate):
                 "category": row[8],
                 "notes": row[9],
                 "tags": row[10],
-                "context": row[11]
-            }
+                "context": row[11],
+            },
         }
 
     except HTTPException:
@@ -297,8 +304,7 @@ def delete_task(task_id: int):
         # Check if task exists
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT title FROM tasks WHERE id = :task_id"),
-                {"task_id": task_id}
+                text("SELECT title FROM tasks WHERE id = :task_id"), {"task_id": task_id}
             )
             row = result.fetchone()
 
@@ -310,21 +316,19 @@ def delete_task(task_id: int):
         # Soft delete: mark as completed and add deleted flag
         with engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE tasks
                     SET completed = 1
                     WHERE id = :task_id
-                """),
-                {"task_id": task_id}
+                """
+                ),
+                {"task_id": task_id},
             )
 
         print(f"✅ Task deleted: {task_title} (ID: {task_id})")
 
-        return {
-            "status": "deleted",
-            "task_id": task_id,
-            "title": task_title
-        }
+        return {"status": "deleted", "task_id": task_id, "title": task_title}
 
     except HTTPException:
         raise
@@ -348,8 +352,7 @@ def accept_task(task_id: int):
         # Check if task exists
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT title, status FROM tasks WHERE id = :task_id"),
-                {"task_id": task_id}
+                text("SELECT title, status FROM tasks WHERE id = :task_id"), {"task_id": task_id}
             )
             row = result.fetchone()
 
@@ -361,12 +364,14 @@ def accept_task(task_id: int):
         # Update status to active
         with engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE tasks
                     SET status = 'active'
                     WHERE id = :task_id
-                """),
-                {"task_id": task_id}
+                """
+                ),
+                {"task_id": task_id},
             )
 
         print(f"✅ Task accepted: {task_title} (ID: {task_id}) - {current_status} → active")
@@ -376,7 +381,7 @@ def accept_task(task_id: int):
             "task_id": task_id,
             "title": task_title,
             "previous_status": current_status,
-            "new_status": "active"
+            "new_status": "active",
         }
 
     except HTTPException:
@@ -401,8 +406,7 @@ def reject_task(task_id: int):
         # Check if task exists
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT title, status FROM tasks WHERE id = :task_id"),
-                {"task_id": task_id}
+                text("SELECT title, status FROM tasks WHERE id = :task_id"), {"task_id": task_id}
             )
             row = result.fetchone()
 
@@ -414,12 +418,14 @@ def reject_task(task_id: int):
         # Update status to rejected
         with engine.begin() as conn:
             conn.execute(
-                text("""
+                text(
+                    """
                     UPDATE tasks
                     SET status = 'rejected'
                     WHERE id = :task_id
-                """),
-                {"task_id": task_id}
+                """
+                ),
+                {"task_id": task_id},
             )
 
         print(f"✅ Task rejected: {task_title} (ID: {task_id}) - {current_status} → rejected")
@@ -429,7 +435,7 @@ def reject_task(task_id: int):
             "task_id": task_id,
             "title": task_title,
             "previous_status": current_status,
-            "new_status": "rejected"
+            "new_status": "rejected",
         }
 
     except HTTPException:

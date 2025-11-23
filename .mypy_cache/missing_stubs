@@ -1,0 +1,4 @@
+types-cachetools
+types-cffi
+types-pyOpenSSL
+types-requests

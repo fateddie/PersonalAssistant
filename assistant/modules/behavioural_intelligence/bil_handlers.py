@@ -45,27 +45,33 @@ def handle_morning_checkin(data):
             supabase = _get_supabase_client()
 
             # Query active business projects
-            result = supabase.table("project_decisions")\
-                .select("project_name, decision, agent_name, created_at, notes")\
-                .in_("decision", ["approved", "in_progress"])\
-                .order("created_at", desc=True)\
-                .limit(5)\
+            result = (
+                supabase.table("project_decisions")
+                .select("project_name, decision, agent_name, created_at, notes")
+                .in_("decision", ["approved", "in_progress"])
+                .order("created_at", desc=True)
+                .limit(5)
                 .execute()
+            )
 
             if result.data and len(result.data) > 0:
                 print("📊 Active Business Projects (ManagementTeam):")
                 print("=" * 50)
 
                 for project in result.data:
-                    project_name = project['project_name']
-                    decision = project['decision']
-                    agent = project['agent_name']
+                    project_name = project["project_name"]
+                    decision = project["decision"]
+                    agent = project["agent_name"]
 
                     # Get task count for this project
                     tasks = get_tasks_for_project(project_name, include_completed=False)
                     task_count = len(tasks) if tasks else 0
                     completed_tasks = get_tasks_for_project(project_name, include_completed=True)
-                    completed_count = len([t for t in completed_tasks if t.get('completed', False)]) if completed_tasks else 0
+                    completed_count = (
+                        len([t for t in completed_tasks if t.get("completed", False)])
+                        if completed_tasks
+                        else 0
+                    )
 
                     # Display project with task count
                     status_emoji = "🟢" if decision == "approved" else "🟡"
@@ -74,10 +80,14 @@ def handle_morning_checkin(data):
 
                     if task_count > 0:
                         print(f"     Tasks: {completed_count} completed, {task_count} pending")
-                        print(f"     💡 View tasks: python assistant/core/supabase_memory.py project --project '{project_name}'")
+                        print(
+                            f"     💡 View tasks: python assistant/core/supabase_memory.py project --project '{project_name}'"
+                        )
                     else:
                         print(f"     ⚠️  No tasks created yet")
-                        print(f"     💡 Create tasks: python assistant/core/supabase_memory.py add-task --project '{project_name}'")
+                        print(
+                            f"     💡 Create tasks: python assistant/core/supabase_memory.py add-task --project '{project_name}'"
+                        )
 
                 print("\n" + "=" * 50)
                 print(f"📈 Total: {len(result.data)} active business projects\n")
@@ -90,7 +100,10 @@ def handle_morning_checkin(data):
         print("ℹ️  ManagementTeam integration not configured\n")
 
     # Optional: Show yesterday's summary
-    if PROGRESS_REPORTS_AVAILABLE and os.getenv("MORNING_SHOW_YESTERDAY", "false").lower() == "true":
+    if (
+        PROGRESS_REPORTS_AVAILABLE
+        and os.getenv("MORNING_SHOW_YESTERDAY", "false").lower() == "true"
+    ):
         try:
             print("\n📅 Yesterday's Activity Summary")
             print("=" * 50)
@@ -99,11 +112,17 @@ def handle_morning_checkin(data):
             mt_activity = get_managementteam_activity(yesterday)
             as_activity = get_asksharon_activity(yesterday)
 
-            total_activity = mt_activity['total_projects'] + as_activity['total_created'] + as_activity['total_completed']
+            total_activity = (
+                mt_activity["total_projects"]
+                + as_activity["total_created"]
+                + as_activity["total_completed"]
+            )
 
             if total_activity > 0:
                 print(f"  Business projects: {mt_activity['total_projects']} worked on")
-                print(f"  Tasks: {as_activity['total_created']} created, {as_activity['total_completed']} completed")
+                print(
+                    f"  Tasks: {as_activity['total_created']} created, {as_activity['total_completed']} completed"
+                )
                 print(f"\n  💡 Full report: python scripts/progress_report.py yesterday")
             else:
                 print("  No activity recorded yesterday")

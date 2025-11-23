@@ -18,14 +18,17 @@ try:
     from assistant.core.supabase_memory import (
         _get_supabase_client,
         get_tasks_for_project,
-        DEPENDENCIES_AVAILABLE
+        DEPENDENCIES_AVAILABLE,
     )
+
     SUPABASE_AVAILABLE = DEPENDENCIES_AVAILABLE
 except ImportError:
     SUPABASE_AVAILABLE = False
     _get_supabase_client = None
     get_tasks_for_project = None
-    print("⚠️  Supabase memory not available - ManagementTeam projects won't be shown in morning check-in")
+    print(
+        "⚠️  Supabase memory not available - ManagementTeam projects won't be shown in morning check-in"
+    )
 
 # Import progress report functions for daily summaries
 try:
@@ -33,6 +36,7 @@ try:
     PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
     sys.path.insert(0, str(PROJECT_ROOT))
     from scripts.progress_report import get_managementteam_activity, get_asksharon_activity
+
     PROGRESS_REPORTS_AVAILABLE = True
 except ImportError:
     PROGRESS_REPORTS_AVAILABLE = False

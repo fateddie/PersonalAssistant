@@ -29,10 +29,7 @@ def job_email_sync():
     global _last_email_sync
     try:
         print(f"📧 Scheduled email sync starting...")
-        response = requests.get(
-            "http://localhost:8000/emails/detect-events?limit=50",
-            timeout=30
-        )
+        response = requests.get("http://localhost:8000/emails/detect-events?limit=50", timeout=30)
         if response.status_code == 200:
             data = response.json()
             detected = data.get("detected", 0)

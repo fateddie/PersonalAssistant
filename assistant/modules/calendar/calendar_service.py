@@ -11,7 +11,7 @@ from .calendar_config import (
     GOOGLE_CALENDAR_ENABLED,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
-    TOKEN_FILE
+    TOKEN_FILE,
 )
 
 # Google Calendar API client (initialized on first use)
@@ -47,7 +47,7 @@ def get_calendar_service():
 
         # Load token if exists
         if TOKEN_FILE.exists():
-            with open(TOKEN_FILE, 'r') as token:
+            with open(TOKEN_FILE, "r") as token:
                 creds_data = json.load(token)
                 creds = Credentials.from_authorized_user_info(creds_data)
 
@@ -55,11 +55,11 @@ def get_calendar_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
             # Save refreshed token
-            with open(TOKEN_FILE, 'w') as token:
+            with open(TOKEN_FILE, "w") as token:
                 token.write(creds.to_json())
 
         if creds and creds.valid:
-            calendar_service = build('calendar', 'v3', credentials=creds)
+            calendar_service = build("calendar", "v3", credentials=creds)
             print("✅ Google Calendar service initialized")
             return calendar_service
 
@@ -68,7 +68,9 @@ def get_calendar_service():
         return None
 
     except ImportError:
-        print("⚠️  google-api-python-client not installed. Install with: pip install google-auth google-auth-oauthlib google-api-python-client")
+        print(
+            "⚠️  google-api-python-client not installed. Install with: pip install google-auth google-auth-oauthlib google-api-python-client"
+        )
         return None
     except Exception as e:
         print(f"❌ Error initializing Google Calendar: {e}")

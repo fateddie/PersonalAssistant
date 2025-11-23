@@ -23,7 +23,9 @@ from .supabase_memory import (
 def main():
     """CLI entry point"""
     parser = argparse.ArgumentParser(description="AskSharon Supabase Memory CLI")
-    parser.add_argument("command", choices=["add-task", "list", "search", "link", "project", "test"])
+    parser.add_argument(
+        "command", choices=["add-task", "list", "search", "link", "project", "test"]
+    )
     parser.add_argument("--title", help="Task title")
     parser.add_argument("--description", default="", help="Task description")
     parser.add_argument("--urgency", type=int, default=3, help="Urgency (1-5)")
@@ -46,7 +48,7 @@ def main():
             urgency=args.urgency,
             importance=args.importance,
             effort=args.effort,
-            project_reference=args.project
+            project_reference=args.project,
         )
         print(f"Memory ID: {memory_id}")
 
@@ -56,7 +58,7 @@ def main():
         for task in tasks:
             print(f"  [{task['id']}] {task['title']}")
             print(f"      U:{task['urgency']} I:{task['importance']} E:{task['effort']}")
-            if task.get('project_reference'):
+            if task.get("project_reference"):
                 print(f"      Project: {task['project_reference']}")
             print()
 

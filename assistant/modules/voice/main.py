@@ -52,11 +52,7 @@ API_URL = "http://localhost:8002"
 client = AssistantAPIClient(API_URL)
 
 # Page config
-st.set_page_config(
-    page_title="AskSharon.ai",
-    page_icon="🤖",
-    layout="wide"
-)
+st.set_page_config(page_title="AskSharon.ai", page_icon="🤖", layout="wide")
 
 # Custom CSS
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
@@ -66,12 +62,12 @@ def main():
     """Main Streamlit app - Chat-first design with full conversational AI"""
 
     # Show notifications
-    if 'last_deleted' in st.session_state:
+    if "last_deleted" in st.session_state:
         st.toast(f"✅ Deleted: {st.session_state['last_deleted']}")
-        del st.session_state['last_deleted']
-    if 'last_updated' in st.session_state:
+        del st.session_state["last_deleted"]
+    if "last_updated" in st.session_state:
         st.toast(f"✅ Updated: {st.session_state['last_updated']}")
-        del st.session_state['last_updated']
+        del st.session_state["last_updated"]
 
     # Check API health
     if not check_api_health(client):
@@ -80,24 +76,24 @@ def main():
         return
 
     # Initialize session state
-    if 'messages' not in st.session_state:
+    if "messages" not in st.session_state:
         st.session_state.messages = []
-    if 'current_view' not in st.session_state:
+    if "current_view" not in st.session_state:
         st.session_state.current_view = "today"
-    if 'awaiting_confirmation' not in st.session_state:
+    if "awaiting_confirmation" not in st.session_state:
         st.session_state.awaiting_confirmation = False
-    if 'pending_action' not in st.session_state:
+    if "pending_action" not in st.session_state:
         st.session_state.pending_action = None
-    if 'pending_data' not in st.session_state:
+    if "pending_data" not in st.session_state:
         st.session_state.pending_data = None
-    if 'awaiting_info' not in st.session_state:
+    if "awaiting_info" not in st.session_state:
         st.session_state.awaiting_info = False
-    if 'awaiting_info_type' not in st.session_state:
+    if "awaiting_info_type" not in st.session_state:
         st.session_state.awaiting_info_type = None
     # Guided goal creation flow
-    if 'goal_creation_stage' not in st.session_state:
+    if "goal_creation_stage" not in st.session_state:
         st.session_state.goal_creation_stage = None
-    if 'pending_goal' not in st.session_state:
+    if "pending_goal" not in st.session_state:
         st.session_state.pending_goal = {}
 
     # ===== HEADER =====
@@ -144,7 +140,7 @@ def main():
         st.header("📊 Quick Stats")
         try:
             stats = client.get_stats()
-            for item_type, count in stats['count_by_type'].items():
+            for item_type, count in stats["count_by_type"].items():
                 type_name = item_type.replace("ItemType.", "")
                 st.metric(type_name.title(), count)
         except Exception:
@@ -157,10 +153,10 @@ def _get_chat_placeholder() -> str:
         return "Type 'yes' to confirm or 'no' to cancel..."
     elif st.session_state.goal_creation_stage:
         stage_hints = {
-            'ask_calendar': "yes/no",
-            'get_time': "e.g., 'weekdays 7:30-9am'",
-            'get_name': "Enter goal name...",
-            'get_category': "educational, fitness, work, personal, creative, other"
+            "ask_calendar": "yes/no",
+            "get_time": "e.g., 'weekdays 7:30-9am'",
+            "get_name": "Enter goal name...",
+            "get_category": "educational, fitness, work, personal, creative, other",
         }
         return stage_hints.get(st.session_state.goal_creation_stage, "Continue...")
     elif st.session_state.awaiting_info:
@@ -178,13 +174,11 @@ def _handle_chat_input(chat_input: str):
     result = process_chat_message(chat_input, st.session_state.messages)
 
     # Handle confirmation responses
-    if result['action'] == 'confirm_yes':
+    if result["action"] == "confirm_yes":
         # Execute the pending action
         if st.session_state.pending_action and st.session_state.pending_data:
             response = execute_pending_action(
-                client,
-                st.session_state.pending_data,
-                st.session_state.pending_action
+                client, st.session_state.pending_data, st.session_state.pending_action
             )
         else:
             response = "Nothing to confirm."
@@ -196,7 +190,7 @@ def _handle_chat_input(chat_input: str):
         st.session_state.pending_goal = {}
         st.session_state.current_view = "today"
 
-    elif result['action'] == 'confirm_no':
+    elif result["action"] == "confirm_no":
         response = "Okay, cancelled. What else can I help you with?"
         st.session_state.awaiting_confirmation = False
         st.session_state.pending_action = None
@@ -204,103 +198,103 @@ def _handle_chat_input(chat_input: str):
         st.session_state.goal_creation_stage = None
         st.session_state.pending_goal = {}
 
-    elif result['action'] == 'show':
-        st.session_state.current_view = result['view']
-        response = result['response_text']
+    elif result["action"] == "show":
+        st.session_state.current_view = result["view"]
+        response = result["response_text"]
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'daily_summary':
+    elif result["action"] == "daily_summary":
         response = get_all_daily_tasks(client)
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'check_email':
+    elif result["action"] == "check_email":
         response = check_and_summarize_emails()
         st.session_state.awaiting_confirmation = False
 
     # EMAIL ACTIONS
-    elif result['action'] == 'search_emails':
-        response = search_emails(result['pending_data'])
+    elif result["action"] == "search_emails":
+        response = search_emails(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'fetch_new_emails':
-        response = fetch_new_emails(result['pending_data'])
+    elif result["action"] == "fetch_new_emails":
+        response = fetch_new_emails(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'mark_email_read':
-        response = mark_email_read(result['pending_data'])
+    elif result["action"] == "mark_email_read":
+        response = mark_email_read(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'mark_email_unread':
-        response = mark_email_unread(result['pending_data'])
+    elif result["action"] == "mark_email_unread":
+        response = mark_email_unread(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'star_email':
-        response = star_email(result['pending_data'])
+    elif result["action"] == "star_email":
+        response = star_email(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'detect_email_events':
-        response = detect_email_events(result['pending_data'])
+    elif result["action"] == "detect_email_events":
+        response = detect_email_events(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'list_pending_events':
-        response = list_pending_events(result['pending_data'])
+    elif result["action"] == "list_pending_events":
+        response = list_pending_events(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'approve_event':
-        response = approve_event(result['pending_data'])
+    elif result["action"] == "approve_event":
+        response = approve_event(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'reject_event':
-        response = reject_event(result['pending_data'])
+    elif result["action"] == "reject_event":
+        response = reject_event(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
     # CALENDAR ACTIONS
-    elif result['action'] == 'list_calendar_events':
-        response = list_calendar_events(result['pending_data'])
+    elif result["action"] == "list_calendar_events":
+        response = list_calendar_events(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'calendar_status':
+    elif result["action"] == "calendar_status":
         response = get_calendar_status()
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] == 'check_calendar_conflicts':
-        response = check_calendar_conflicts(result['pending_data'])
+    elif result["action"] == "check_calendar_conflicts":
+        response = check_calendar_conflicts(result["pending_data"])
         st.session_state.awaiting_confirmation = False
 
-    elif result['action'] in ['goal_flow_start', 'goal_flow_continue']:
-        response = result['response_text']
+    elif result["action"] in ["goal_flow_start", "goal_flow_continue"]:
+        response = result["response_text"]
 
-    elif result['action'] == 'need_goal_name':
+    elif result["action"] == "need_goal_name":
         st.session_state.awaiting_info = True
-        st.session_state.awaiting_info_type = 'goal_name'
-        response = result['response_text']
+        st.session_state.awaiting_info_type = "goal_name"
+        response = result["response_text"]
 
-    elif result['action'] == 'need_task_name':
+    elif result["action"] == "need_task_name":
         st.session_state.awaiting_info = True
-        st.session_state.awaiting_info_type = 'task_name'
-        response = result['response_text']
+        st.session_state.awaiting_info_type = "task_name"
+        response = result["response_text"]
 
-    elif result['action'] == 'need_more_info':
-        info_needed = result.get('info_needed', '')
-        if info_needed == 'calendar_preference':
-            st.session_state.goal_creation_stage = 'ask_calendar'
-            st.session_state.pending_goal = result.get('pending_data', {})
-        elif info_needed == 'days':
-            st.session_state.goal_creation_stage = 'get_time'
-            st.session_state.pending_goal = result.get('pending_data', {})
-        elif info_needed == 'time':
-            st.session_state.goal_creation_stage = 'get_time'
-            st.session_state.pending_goal = result.get('pending_data', {})
-        response = result['response_text']
+    elif result["action"] == "need_more_info":
+        info_needed = result.get("info_needed", "")
+        if info_needed == "calendar_preference":
+            st.session_state.goal_creation_stage = "ask_calendar"
+            st.session_state.pending_goal = result.get("pending_data", {})
+        elif info_needed == "days":
+            st.session_state.goal_creation_stage = "get_time"
+            st.session_state.pending_goal = result.get("pending_data", {})
+        elif info_needed == "time":
+            st.session_state.goal_creation_stage = "get_time"
+            st.session_state.pending_goal = result.get("pending_data", {})
+        response = result["response_text"]
 
-    elif result['needs_confirmation']:
+    elif result["needs_confirmation"]:
         st.session_state.awaiting_confirmation = True
-        st.session_state.pending_action = result['action']
-        st.session_state.pending_data = result['pending_data']
-        response = result['response_text']
+        st.session_state.pending_action = result["action"]
+        st.session_state.pending_data = result["pending_data"]
+        response = result["response_text"]
 
     else:
-        response = result['response_text']
+        response = result["response_text"]
         st.session_state.awaiting_confirmation = False
         st.session_state.awaiting_info = False
 
@@ -316,48 +310,48 @@ def _render_content_area():
         if current_view == "today":
             st.subheader("📅 Today's Schedule")
             result = client.list_items(date_from=today, date_to=today, limit=50)
-            if result['total'] == 0:
+            if result["total"] == 0:
                 st.info("Nothing scheduled for today. Use the chat to add items!")
             else:
-                for item in result['items']:
+                for item in result["items"]:
                     render_item_card(item, client, key_prefix="today")
 
         elif current_view == "goals":
             st.subheader("🎯 Your Goals")
             result = client.list_items(type=["goal"], limit=50)
-            if result['total'] == 0:
+            if result["total"] == 0:
                 st.info("No goals yet. Try saying 'add a new goal'")
             else:
-                for item in result['items']:
+                for item in result["items"]:
                     render_item_card(item, client, key_prefix="goals")
 
         elif current_view == "tasks":
             st.subheader("✅ Your Tasks")
             result = client.list_items(type=["task"], status="upcoming", limit=50)
-            if result['total'] == 0:
+            if result["total"] == 0:
                 st.info("No pending tasks")
             else:
-                for item in result['items']:
+                for item in result["items"]:
                     render_item_card(item, client, key_prefix="tasks")
 
         elif current_view == "upcoming":
             st.subheader("📆 Upcoming (Next 7 Days)")
             next_week = today + timedelta(days=7)
             result = client.list_items(date_from=today, date_to=next_week, limit=50)
-            if result['total'] == 0:
+            if result["total"] == 0:
                 st.info("Nothing scheduled for the next 7 days")
             else:
-                _render_upcoming_items(result['items'], today)
+                _render_upcoming_items(result["items"], today)
 
         elif current_view == "add_item":
-            item_type = st.session_state.get('add_item_type', 'task')
+            item_type = st.session_state.get("add_item_type", "task")
             st.subheader(f"➕ Add New {item_type.title()}")
             render_add_form(item_type, client)
 
         elif current_view == "all":
             st.subheader("✅ All Items")
             result = client.list_items(limit=100)
-            for item in result['items']:
+            for item in result["items"]:
                 render_item_card(item, client, key_prefix="all")
 
     except RerunException:
@@ -370,7 +364,7 @@ def _render_upcoming_items(items, today):
     """Render items grouped by date"""
     items_by_date = {}
     for item in items:
-        item_date = item['date']
+        item_date = item["date"]
         if item_date not in items_by_date:
             items_by_date[item_date] = []
         items_by_date[item_date].append(item)

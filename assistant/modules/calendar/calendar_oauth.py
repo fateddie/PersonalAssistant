@@ -13,7 +13,7 @@ from .calendar_config import (
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
-    TOKEN_FILE
+    TOKEN_FILE,
 )
 
 router = APIRouter()
@@ -26,7 +26,9 @@ def start_oauth_flow():
     Redirects user to Google consent screen.
     """
     if not GOOGLE_CALENDAR_ENABLED:
-        return {"error": "Google Calendar integration is disabled. Set GOOGLE_CALENDAR_ENABLED=true in config/.env"}
+        return {
+            "error": "Google Calendar integration is disabled. Set GOOGLE_CALENDAR_ENABLED=true in config/.env"
+        }
 
     try:
         from google_auth_oauthlib.flow import Flow
@@ -41,15 +43,13 @@ def start_oauth_flow():
                     "redirect_uris": [GOOGLE_REDIRECT_URI],
                 }
             },
-            scopes=['https://www.googleapis.com/auth/calendar']
+            scopes=["https://www.googleapis.com/auth/calendar"],
         )
 
         flow.redirect_uri = GOOGLE_REDIRECT_URI
 
         authorization_url, state = flow.authorization_url(
-            access_type='offline',
-            include_granted_scopes='true',
-            prompt='consent'
+            access_type="offline", include_granted_scopes="true", prompt="consent"
         )
 
         return RedirectResponse(url=authorization_url)
@@ -61,11 +61,7 @@ def start_oauth_flow():
 
 
 @router.get("/oauth/callback")
-def oauth_callback(
-    code: str = Query(None),
-    state: str = Query(None),
-    error: str = Query(None)
-):
+def oauth_callback(code: str = Query(None), state: str = Query(None), error: str = Query(None)):
     """
     OAuth2 callback endpoint.
     Google redirects here after user grants permission.
@@ -74,14 +70,14 @@ def oauth_callback(
         return {
             "status": "error",
             "error": error,
-            "message": f"Authentication failed: {error}. User may have denied access or there was a configuration error."
+            "message": f"Authentication failed: {error}. User may have denied access or there was a configuration error.",
         }
 
     if not code:
         return {
             "status": "error",
             "message": "No authorization code received from Google. Please try again.",
-            "help": "Visit /calendar/auth to start the authentication process"
+            "help": "Visit /calendar/auth to start the authentication process",
         }
 
     try:
@@ -97,15 +93,15 @@ def oauth_callback(
                     "redirect_uris": [GOOGLE_REDIRECT_URI],
                 }
             },
-            scopes=['https://www.googleapis.com/auth/calendar'],
-            state=state
+            scopes=["https://www.googleapis.com/auth/calendar"],
+            state=state,
         )
 
         flow.redirect_uri = GOOGLE_REDIRECT_URI
         flow.fetch_token(code=code)
 
         creds = flow.credentials
-        with open(TOKEN_FILE, 'w') as token:
+        with open(TOKEN_FILE, "w") as token:
             token.write(creds.to_json())
 
         print("✅ Google Calendar authentication successful")
@@ -113,7 +109,7 @@ def oauth_callback(
         return {
             "status": "success",
             "message": "Google Calendar connected! You can now create events.",
-            "expires_at": creds.expiry.isoformat() if creds.expiry else None
+            "expires_at": creds.expiry.isoformat() if creds.expiry else None,
         }
 
     except Exception as e:
@@ -128,10 +124,10 @@ def get_calendar_status():
 
     if GOOGLE_CALENDAR_ENABLED and TOKEN_FILE.exists():
         try:
-            with open(TOKEN_FILE, 'r') as token:
+            with open(TOKEN_FILE, "r") as token:
                 creds_data = json.load(token)
                 authenticated = True
-                token_expires = creds_data.get('expiry')
+                token_expires = creds_data.get("expiry")
         except (json.JSONDecodeError, IOError):
             pass
 
@@ -139,5 +135,5 @@ def get_calendar_status():
         "enabled": GOOGLE_CALENDAR_ENABLED,
         "authenticated": authenticated,
         "token_expires": token_expires,
-        "setup_url": "/calendar/auth" if not authenticated else None
+        "setup_url": "/calendar/auth" if not authenticated else None,
     }

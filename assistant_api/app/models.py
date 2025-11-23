@@ -3,6 +3,7 @@ Database Models
 ===============
 SQLAlchemy models for unified item storage
 """
+
 from sqlalchemy import Column, String, Date, Time, Enum, DateTime, Text
 from sqlalchemy.sql import func
 import uuid
@@ -13,6 +14,7 @@ from .db import Base
 
 class ItemType(str, enum.Enum):
     """Type of assistant item"""
+
     # Personal appointments (doctor, dentist, haircut, etc.)
     appointment = "appointment"
     # Actual meetings you need to attend
@@ -29,6 +31,7 @@ class ItemType(str, enum.Enum):
 
 class ItemStatus(str, enum.Enum):
     """Status of assistant item"""
+
     upcoming = "upcoming"
     in_progress = "in_progress"
     done = "done"
@@ -37,6 +40,7 @@ class ItemStatus(str, enum.Enum):
 
 class ItemSource(str, enum.Enum):
     """Source where item was created"""
+
     manual = "manual"
     gmail = "gmail"
     calendar = "calendar"
@@ -47,6 +51,7 @@ class AssistantItem(Base):
     Unified model for appointments, meetings, tasks, goals, webinars, deadlines
     All types share this schema with type-specific field usage
     """
+
     __tablename__ = "assistant_items"
 
     # Core fields - ID is set by crud.py's _generate_sequential_id()
@@ -76,8 +81,12 @@ class AssistantItem(Base):
     goal_id = Column(String, nullable=True)  # Link tasks to goals
 
     # Email categorization
-    category = Column(String(50), nullable=True)  # content_creation|trading|education|tech|service|shopping|other
-    subcategory = Column(String(50), nullable=True)  # newsletter|promotional|market_summary|course|mooc|etc
+    category = Column(
+        String(50), nullable=True
+    )  # content_creation|trading|education|tech|service|shopping|other
+    subcategory = Column(
+        String(50), nullable=True
+    )  # newsletter|promotional|market_summary|course|mooc|etc
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

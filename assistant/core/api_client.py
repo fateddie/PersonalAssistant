@@ -3,6 +3,7 @@ API Client for Streamlit
 =========================
 Simple HTTP client for Assistant API
 """
+
 import requests
 from typing import List, Dict, Optional
 from datetime import date
@@ -31,17 +32,14 @@ class AssistantAPIClient:
         date_to: Optional[date] = None,
         search: Optional[str] = None,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> Dict:
         """
         List items with filtering
 
         Returns: {"items": [...], "total": int}
         """
-        params = {
-            "limit": limit,
-            "offset": offset
-        }
+        params = {"limit": limit, "offset": offset}
 
         if type:
             params["type"] = type
@@ -73,7 +71,9 @@ class AssistantAPIClient:
         response = requests.post(f"{self.base_url}/items", json=item_data)
         if not response.ok:
             error_detail = response.text[:200] if response.text else f"HTTP {response.status_code}"
-            raise Exception(f"{response.status_code} Server Error: {error_detail} for url: {response.url}")
+            raise Exception(
+                f"{response.status_code} Server Error: {error_detail} for url: {response.url}"
+            )
         return response.json()
 
     def update_item(self, item_id: str, updates: Dict) -> Dict:
@@ -81,7 +81,9 @@ class AssistantAPIClient:
         response = requests.patch(f"{self.base_url}/items/{item_id}", json=updates)
         if not response.ok:
             error_detail = response.text[:200] if response.text else f"HTTP {response.status_code}"
-            raise Exception(f"{response.status_code} Server Error: {error_detail} for url: {response.url}")
+            raise Exception(
+                f"{response.status_code} Server Error: {error_detail} for url: {response.url}"
+            )
         return response.json()
 
     def delete_item(self, item_id: str) -> None:

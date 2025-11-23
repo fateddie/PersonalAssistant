@@ -74,15 +74,17 @@ def process_function_call(function_name: str, args: Dict, assistant_text: Option
 
     # Unknown function
     return {
-        'action': 'unknown',
-        'response_text': response_text or "I'm not sure what you want me to do. Could you rephrase?",
-        'needs_confirmation': False,
-        'pending_data': None,
-        'view': None
+        "action": "unknown",
+        "response_text": response_text
+        or "I'm not sure what you want me to do. Could you rephrase?",
+        "needs_confirmation": False,
+        "pending_data": None,
+        "view": None,
     }
 
 
 # GOAL/TASK HANDLERS
+
 
 def _handle_create_goal_with_sessions(args: Dict, response_text: str) -> Dict:
     title = args.get("title", "").title()
@@ -93,7 +95,7 @@ def _handle_create_goal_with_sessions(args: Dict, response_text: str) -> Dict:
     category = args.get("category", "other")
     needs_confirmation = args.get("needs_confirmation", True)
 
-    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     days_str = ", ".join(day_names[d] for d in days) if days else "no days"
     if days == [0, 1, 2, 3, 4]:
         days_str = "weekdays"
@@ -102,14 +104,18 @@ def _handle_create_goal_with_sessions(args: Dict, response_text: str) -> Dict:
         response_text = f"I'll create goal **'{title}'** ({category}) with sessions on **{days_str}** from **{start_time}** to **{end_time}** for **{end_date}** and add them to your Google Calendar. Confirm?"
 
     return {
-        'action': 'create_goal_with_sessions',
-        'response_text': response_text,
-        'needs_confirmation': needs_confirmation,
-        'pending_data': {
-            'title': title, 'days': days, 'start_time': start_time,
-            'end_time': end_time, 'end_date': end_date, 'category': category
+        "action": "create_goal_with_sessions",
+        "response_text": response_text,
+        "needs_confirmation": needs_confirmation,
+        "pending_data": {
+            "title": title,
+            "days": days,
+            "start_time": start_time,
+            "end_time": end_time,
+            "end_date": end_date,
+            "category": category,
         },
-        'view': None
+        "view": None,
     }
 
 
@@ -125,11 +131,11 @@ def _handle_create_goal(args: Dict, response_text: str) -> Dict:
         response_text += ". Confirm?"
 
     return {
-        'action': 'create_goal',
-        'response_text': response_text,
-        'needs_confirmation': needs_confirmation,
-        'pending_data': {'title': title, 'category': category},
-        'view': None
+        "action": "create_goal",
+        "response_text": response_text,
+        "needs_confirmation": needs_confirmation,
+        "pending_data": {"title": title, "category": category},
+        "view": None,
     }
 
 
@@ -141,11 +147,11 @@ def _handle_create_task(args: Dict, response_text: str) -> Dict:
         response_text = f"I'll create task **'{title}'** for today. Confirm?"
 
     return {
-        'action': 'create_task',
-        'response_text': response_text,
-        'needs_confirmation': needs_confirmation,
-        'pending_data': {'task_title': title},
-        'view': None
+        "action": "create_task",
+        "response_text": response_text,
+        "needs_confirmation": needs_confirmation,
+        "pending_data": {"task_title": title},
+        "view": None,
     }
 
 
@@ -162,55 +168,72 @@ def _handle_create_task_with_calendar(args: Dict, response_text: str) -> Dict:
         response_text = f"I'll create task **'{title}'** for **{date_display}** from **{start_time}** to **{end_time}** and add it to your Google Calendar. Confirm?"
 
     return {
-        'action': 'create_task_with_calendar',
-        'response_text': response_text,
-        'needs_confirmation': needs_confirmation,
-        'pending_data': {'task_title': title, 'date': task_date, 'start_time': start_time, 'end_time': end_time},
-        'view': None
+        "action": "create_task_with_calendar",
+        "response_text": response_text,
+        "needs_confirmation": needs_confirmation,
+        "pending_data": {
+            "task_title": title,
+            "date": task_date,
+            "start_time": start_time,
+            "end_time": end_time,
+        },
+        "view": None,
     }
 
 
 # VIEW HANDLERS
 
+
 def _handle_show_items(args: Dict, response_text: str) -> Dict:
     view = args.get("view", "today")
     view_messages = {
-        'today': "Here's what's on your schedule for today:",
-        'goals': "Here are your current goals:",
-        'tasks': "Here are your tasks:",
-        'upcoming': "Here's what's coming up:"
+        "today": "Here's what's on your schedule for today:",
+        "goals": "Here are your current goals:",
+        "tasks": "Here are your tasks:",
+        "upcoming": "Here's what's coming up:",
     }
     return {
-        'action': 'show',
-        'response_text': response_text or view_messages.get(view, "Here's your schedule:"),
-        'needs_confirmation': False, 'pending_data': None, 'view': view
+        "action": "show",
+        "response_text": response_text or view_messages.get(view, "Here's your schedule:"),
+        "needs_confirmation": False,
+        "pending_data": None,
+        "view": view,
     }
 
 
 def _handle_check_emails(response_text: str) -> Dict:
     return {
-        'action': 'check_email',
-        'response_text': response_text or "Let me check your emails and summarize what's important...",
-        'needs_confirmation': False, 'pending_data': None, 'view': None
+        "action": "check_email",
+        "response_text": response_text
+        or "Let me check your emails and summarize what's important...",
+        "needs_confirmation": False,
+        "pending_data": None,
+        "view": None,
     }
 
 
 def _handle_daily_summary(response_text: str) -> Dict:
     return {
-        'action': 'daily_summary',
-        'response_text': response_text or "Here's your daily overview:",
-        'needs_confirmation': False, 'pending_data': None, 'view': None
+        "action": "daily_summary",
+        "response_text": response_text or "Here's your daily overview:",
+        "needs_confirmation": False,
+        "pending_data": None,
+        "view": None,
     }
 
 
 # CONFIRMATION HANDLERS
 
+
 def _handle_confirm_action(args: Dict, response_text: str) -> Dict:
     confirmed = args.get("confirmed", False)
     return {
-        'action': 'confirm_yes' if confirmed else 'confirm_no',
-        'response_text': response_text or ("Let me do that for you." if confirmed else "Okay, cancelled."),
-        'needs_confirmation': False, 'pending_data': None, 'view': None
+        "action": "confirm_yes" if confirmed else "confirm_no",
+        "response_text": response_text
+        or ("Let me do that for you." if confirmed else "Okay, cancelled."),
+        "needs_confirmation": False,
+        "pending_data": None,
+        "view": None,
     }
 
 
@@ -218,43 +241,50 @@ def _handle_ask_for_info(args: Dict, response_text: str) -> Dict:
     info_needed = args.get("info_needed", "")
     context = args.get("context", {})
     prompts = {
-        'goal_name': "What would you like to call this goal?",
-        'task_name': "What would you like to call this task?",
-        'days': "What days would you like? (e.g., 'weekdays', 'mon wed fri', 'weekdays except wednesday')",
-        'time': "What time? (e.g., '7:30-9am', '9 to 10:30')",
-        'category': "What category? (educational, fitness, work, personal, creative, other)",
-        'calendar_preference': "Would you like to block time in your calendar for this goal?",
-        'email_id': "Which email? Please search for it first so I can get the ID.",
-        'end_date': "How long would you like this to run? (e.g., '6 months', 'until March 2026', 'for 3 months')"
+        "goal_name": "What would you like to call this goal?",
+        "task_name": "What would you like to call this task?",
+        "days": "What days would you like? (e.g., 'weekdays', 'mon wed fri', 'weekdays except wednesday')",
+        "time": "What time? (e.g., '7:30-9am', '9 to 10:30')",
+        "category": "What category? (educational, fitness, work, personal, creative, other)",
+        "calendar_preference": "Would you like to block time in your calendar for this goal?",
+        "email_id": "Which email? Please search for it first so I can get the ID.",
+        "end_date": "How long would you like this to run? (e.g., '6 months', 'until March 2026', 'for 3 months')",
     }
     return {
-        'action': 'need_more_info',
-        'response_text': response_text or prompts.get(info_needed, "Can you tell me more?"),
-        'needs_confirmation': False, 'pending_data': context, 'view': None, 'info_needed': info_needed
+        "action": "need_more_info",
+        "response_text": response_text or prompts.get(info_needed, "Can you tell me more?"),
+        "needs_confirmation": False,
+        "pending_data": context,
+        "view": None,
+        "info_needed": info_needed,
     }
 
 
 # EMAIL HANDLERS
+
 
 def _handle_search_emails(args: Dict, response_text: str) -> Dict:
     category = args.get("category")
     query = args.get("query", "")
     max_results = args.get("max_results", 10)
     return {
-        'action': 'search_emails',
-        'response_text': response_text or f"Searching emails{f' in {category}' if category else ''}...",
-        'needs_confirmation': False,
-        'pending_data': {'category': category, 'query': query, 'max_results': max_results},
-        'view': None
+        "action": "search_emails",
+        "response_text": response_text
+        or f"Searching emails{f' in {category}' if category else ''}...",
+        "needs_confirmation": False,
+        "pending_data": {"category": category, "query": query, "max_results": max_results},
+        "view": None,
     }
 
 
 def _handle_fetch_new_emails(args: Dict, response_text: str) -> Dict:
     max_results = args.get("max_results", 20)
     return {
-        'action': 'fetch_new_emails',
-        'response_text': response_text or "Fetching new emails from Gmail...",
-        'needs_confirmation': False, 'pending_data': {'max_results': max_results}, 'view': None
+        "action": "fetch_new_emails",
+        "response_text": response_text or "Fetching new emails from Gmail...",
+        "needs_confirmation": False,
+        "pending_data": {"max_results": max_results},
+        "view": None,
     }
 
 
@@ -262,11 +292,12 @@ def _handle_archive_email(args: Dict, response_text: str) -> Dict:
     email_id = args.get("email_id")
     email_subject = args.get("email_subject", "")
     return {
-        'action': 'archive_email',
-        'response_text': response_text or f"I'll archive{f' \"{email_subject}\"' if email_subject else ' this email'}. Confirm?",
-        'needs_confirmation': True,
-        'pending_data': {'email_id': email_id, 'email_subject': email_subject},
-        'view': None
+        "action": "archive_email",
+        "response_text": response_text
+        or f"I'll archive{f' \"{email_subject}\"' if email_subject else ' this email'}. Confirm?",
+        "needs_confirmation": True,
+        "pending_data": {"email_id": email_id, "email_subject": email_subject},
+        "view": None,
     }
 
 
@@ -274,103 +305,126 @@ def _handle_delete_email(args: Dict, response_text: str) -> Dict:
     email_id = args.get("email_id")
     email_subject = args.get("email_subject", "")
     return {
-        'action': 'delete_email',
-        'response_text': response_text or f"I'll delete{f' \"{email_subject}\"' if email_subject else ' this email'}. Confirm?",
-        'needs_confirmation': True,
-        'pending_data': {'email_id': email_id, 'email_subject': email_subject},
-        'view': None
+        "action": "delete_email",
+        "response_text": response_text
+        or f"I'll delete{f' \"{email_subject}\"' if email_subject else ' this email'}. Confirm?",
+        "needs_confirmation": True,
+        "pending_data": {"email_id": email_id, "email_subject": email_subject},
+        "view": None,
     }
 
 
 def _handle_mark_email_read(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'mark_email_read',
-        'response_text': response_text or "Marking email as read...",
-        'needs_confirmation': False, 'pending_data': {'email_id': args.get("email_id")}, 'view': None
+        "action": "mark_email_read",
+        "response_text": response_text or "Marking email as read...",
+        "needs_confirmation": False,
+        "pending_data": {"email_id": args.get("email_id")},
+        "view": None,
     }
 
 
 def _handle_mark_email_unread(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'mark_email_unread',
-        'response_text': response_text or "Marking email as unread...",
-        'needs_confirmation': False, 'pending_data': {'email_id': args.get("email_id")}, 'view': None
+        "action": "mark_email_unread",
+        "response_text": response_text or "Marking email as unread...",
+        "needs_confirmation": False,
+        "pending_data": {"email_id": args.get("email_id")},
+        "view": None,
     }
 
 
 def _handle_star_email(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'star_email',
-        'response_text': response_text or "Starring email...",
-        'needs_confirmation': False, 'pending_data': {'email_id': args.get("email_id")}, 'view': None
+        "action": "star_email",
+        "response_text": response_text or "Starring email...",
+        "needs_confirmation": False,
+        "pending_data": {"email_id": args.get("email_id")},
+        "view": None,
     }
 
 
 def _handle_detect_email_events(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'detect_email_events',
-        'response_text': response_text or "Scanning emails for meetings, webinars, and deadlines...",
-        'needs_confirmation': False, 'pending_data': {'max_emails': args.get("max_emails", 50)}, 'view': None
+        "action": "detect_email_events",
+        "response_text": response_text
+        or "Scanning emails for meetings, webinars, and deadlines...",
+        "needs_confirmation": False,
+        "pending_data": {"max_emails": args.get("max_emails", 50)},
+        "view": None,
     }
 
 
 def _handle_list_pending_events(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'list_pending_events',
-        'response_text': response_text or "Here are the events detected from your emails:",
-        'needs_confirmation': False, 'pending_data': {'limit': args.get("limit", 20)}, 'view': None
+        "action": "list_pending_events",
+        "response_text": response_text or "Here are the events detected from your emails:",
+        "needs_confirmation": False,
+        "pending_data": {"limit": args.get("limit", 20)},
+        "view": None,
     }
 
 
 def _handle_approve_event(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'approve_event',
-        'response_text': response_text or "Approving event...",
-        'needs_confirmation': False, 'pending_data': {'event_id': args.get("event_id")}, 'view': None
+        "action": "approve_event",
+        "response_text": response_text or "Approving event...",
+        "needs_confirmation": False,
+        "pending_data": {"event_id": args.get("event_id")},
+        "view": None,
     }
 
 
 def _handle_reject_event(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'reject_event',
-        'response_text': response_text or "Rejecting event...",
-        'needs_confirmation': False, 'pending_data': {'event_id': args.get("event_id")}, 'view': None
+        "action": "reject_event",
+        "response_text": response_text or "Rejecting event...",
+        "needs_confirmation": False,
+        "pending_data": {"event_id": args.get("event_id")},
+        "view": None,
     }
 
 
 # CALENDAR HANDLERS
 
+
 def _handle_list_calendar_events(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'list_calendar_events',
-        'response_text': response_text or "Here are your upcoming calendar events:",
-        'needs_confirmation': False, 'pending_data': {'max_results': args.get("max_results", 10)}, 'view': None
+        "action": "list_calendar_events",
+        "response_text": response_text or "Here are your upcoming calendar events:",
+        "needs_confirmation": False,
+        "pending_data": {"max_results": args.get("max_results", 10)},
+        "view": None,
     }
 
 
 def _handle_calendar_status(response_text: str) -> Dict:
     return {
-        'action': 'calendar_status',
-        'response_text': response_text or "Checking calendar status...",
-        'needs_confirmation': False, 'pending_data': {}, 'view': None
+        "action": "calendar_status",
+        "response_text": response_text or "Checking calendar status...",
+        "needs_confirmation": False,
+        "pending_data": {},
+        "view": None,
     }
 
 
 def _handle_check_calendar_conflicts(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'check_calendar_conflicts',
-        'response_text': response_text or "Checking for conflicts...",
-        'needs_confirmation': False,
-        'pending_data': {'start_time': args.get("start_time"), 'end_time': args.get("end_time")},
-        'view': None
+        "action": "check_calendar_conflicts",
+        "response_text": response_text or "Checking for conflicts...",
+        "needs_confirmation": False,
+        "pending_data": {"start_time": args.get("start_time"), "end_time": args.get("end_time")},
+        "view": None,
     }
 
 
 def _handle_hide_calendar_event(args: Dict, response_text: str) -> Dict:
     return {
-        'action': 'hide_calendar_event',
-        'response_text': response_text or "I'll hide this event from display. Confirm?",
-        'needs_confirmation': True, 'pending_data': {'event_id': args.get("event_id")}, 'view': None
+        "action": "hide_calendar_event",
+        "response_text": response_text or "I'll hide this event from display. Confirm?",
+        "needs_confirmation": True,
+        "pending_data": {"event_id": args.get("event_id")},
+        "view": None,
     }
 
 
@@ -379,16 +433,16 @@ def _handle_delete_calendar_event(args: Dict, response_text: str) -> Dict:
     event_title = args.get("event_title")
 
     if event_title:
-        msg = f"I'll delete all calendar events named **\"{event_title}\"** from Google Calendar. Confirm?"
+        msg = f'I\'ll delete all calendar events named **"{event_title}"** from Google Calendar. Confirm?'
     elif event_id:
         msg = "I'll delete this calendar event from Google Calendar. Confirm?"
     else:
         msg = "I'll delete this calendar event. Confirm?"
 
     return {
-        'action': 'delete_calendar_event',
-        'response_text': response_text or msg,
-        'needs_confirmation': True,
-        'pending_data': {'event_id': event_id, 'event_title': event_title},
-        'view': None
+        "action": "delete_calendar_event",
+        "response_text": response_text or msg,
+        "needs_confirmation": True,
+        "pending_data": {"event_id": event_id, "event_title": event_title},
+        "view": None,
     }

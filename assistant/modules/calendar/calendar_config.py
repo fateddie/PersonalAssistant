@@ -21,7 +21,9 @@ engine = create_engine(DB_PATH.replace("sqlite:///", "sqlite:///"))
 GOOGLE_CALENDAR_ENABLED = os.getenv("GOOGLE_CALENDAR_ENABLED", "false").lower() == "true"
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/calendar/oauth/callback")
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI", "http://localhost:8000/calendar/oauth/callback"
+)
 
 # OAuth token storage
 TOKEN_FILE = Path(__file__).parent.parent.parent.parent / "config" / "google_calendar_token.json"

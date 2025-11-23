@@ -55,6 +55,7 @@ def _init_openai():
     if OPENAI_API_KEY and not OPENAI_API_KEY.startswith("sk-your-"):
         try:
             from openai import OpenAI
+
             openai_client = OpenAI(api_key=OPENAI_API_KEY)
             logger.info("✅ OpenAI client initialized")
             return True
@@ -78,16 +79,16 @@ def _init_huggingface():
 
         logger.info(f"Loading HuggingFace model: {HF_MODEL}...")
         hf_summarizer = pipeline(
-            "summarization",
-            model=HF_MODEL,
-            device=-1  # CPU (use 0 for GPU if available)
+            "summarization", model=HF_MODEL, device=-1  # CPU (use 0 for GPU if available)
         )
         use_huggingface = True
         logger.info(f"✅ HuggingFace model loaded: {HF_MODEL}")
         return True
 
     except ImportError:
-        logger.warning("⚠️  transformers library not installed. Install with: pip install transformers torch")
+        logger.warning(
+            "⚠️  transformers library not installed. Install with: pip install transformers torch"
+        )
         return False
     except Exception as e:
         logger.warning(f"⚠️  HuggingFace initialization failed: {e}")
@@ -155,14 +156,10 @@ def summarize_with_huggingface(text: str, max_length: int = 130) -> Optional[str
 
         # Generate summary
         result = hf_summarizer(
-            text,
-            max_length=max_length,
-            min_length=30,
-            do_sample=False,
-            truncation=True
+            text, max_length=max_length, min_length=30, do_sample=False, truncation=True
         )
 
-        summary = result[0]['summary_text']
+        summary = result[0]["summary_text"]
         logger.info(f"✅ HuggingFace summarization: {len(text)} chars → {len(summary)} chars")
         return summary
 
@@ -207,12 +204,12 @@ Summary:"""
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an email assistant that creates concise, helpful summaries."
+                    "content": "You are an email assistant that creates concise, helpful summaries.",
                 },
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             max_tokens=max_tokens,
-            temperature=0.3
+            temperature=0.3,
         )
 
         summary = response.choices[0].message.content.strip()
@@ -323,12 +320,12 @@ Action items:"""
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an email assistant that identifies action items."
+                    "content": "You are an email assistant that identifies action items.",
                 },
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             max_tokens=100,
-            temperature=0.3
+            temperature=0.3,
         )
 
         result = response.choices[0].message.content.strip()
@@ -398,12 +395,12 @@ Overview:"""
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an email assistant that provides daily email overviews."
+                    "content": "You are an email assistant that provides daily email overviews.",
                 },
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             max_tokens=200,
-            temperature=0.3
+            temperature=0.3,
         )
 
         overview = response.choices[0].message.content.strip()
@@ -423,5 +420,5 @@ def get_provider_status() -> Dict:
         "huggingface_available": hf_available,
         "hf_model": HF_MODEL if hf_available else None,
         "openai_model": OPENAI_MODEL if openai_available else None,
-        "fallback_enabled": OPENAI_FALLBACK
+        "fallback_enabled": OPENAI_FALLBACK,
     }

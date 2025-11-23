@@ -28,9 +28,7 @@ def recall(query_vector, top_k=5):
     placeholders = ", ".join([f":id{i}" for i in range(len(id_list))])
     params = {f"id{i}": id_val for i, id_val in enumerate(id_list)}
     with engine.connect() as conn:
-        results = conn.execute(
-            text(f"SELECT * FROM memory WHERE id IN ({placeholders})"), params
-        )
+        results = conn.execute(text(f"SELECT * FROM memory WHERE id IN ({placeholders})"), params)
     return results.fetchall()
 
 
