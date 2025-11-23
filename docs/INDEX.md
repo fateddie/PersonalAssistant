@@ -58,6 +58,7 @@
 #### Active Phases
 | Phase | Goal | Tasks | Acceptance |
 |-------|------|-------|------------|
+| [Phase 7: Prompt Coach](../planning/phase_7_prompt_coach/goal.md) | [Tasks](../planning/phase_7_prompt_coach/tasks.md) | [Tests](../planning/phase_7_prompt_coach/acceptance_tests.md) |
 | [Phase 6: Gmail Assistant](../planning/phase_6_gmail_assistant/goal.md) | [Tasks](../planning/phase_6_gmail_assistant/tasks.md) | [Tests](../planning/phase_6_gmail_assistant/acceptance_tests.md) |
 | [Phase 3.5: Discipline](../planning/phase_3.5_discipline/goal.md) | [Tasks](../planning/phase_3.5_discipline/tasks.md) | [Tests](../planning/phase_3.5_discipline/acceptance_tests.md) |
 
@@ -139,7 +140,8 @@ planning/
 ├── phase_3.5_discipline/  # Discipline system
 ├── phase_4_fitness/       # Fitness features
 ├── phase_5_expansion/     # Expansion planning
-└── phase_6_gmail_assistant/ # Gmail features
+├── phase_6_gmail_assistant/ # Gmail features
+└── phase_7_prompt_coach/  # Prompt coaching system
 ```
 
 ---
