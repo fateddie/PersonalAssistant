@@ -55,12 +55,11 @@ Modular Python assistant (FastAPI + Streamlit) with phase-gated development.
 - **Testing:** pytest
 - **Formatting:** Black + mypy
 
-## Inherited Standards
-- See `.cursorrules` for 26 Rules
-- See `docs/RULES_DATABASE_PYTHON.md` for patterns
-- See `docs/AUTOMATION_STANDARDS.md` for automation
-- See `docs/ERROR_HANDLING_GUIDE.md` for errors
-- See `docs/NOTIFICATION_SYSTEM.md` for notifications
+## Documentation
+- **Full Index:** See `docs/INDEX.md` for book-style navigation of all docs
+- See `.cursorrules` for 27 Rules
+- See `docs/ENGINEERING_GUIDELINES.md` for architecture
+- See `docs/RULES_DATABASE.md` for patterns
 
 ## Subagents
 See `.claude/subagents.yaml` for specialized agents:
