@@ -2,8 +2,8 @@
 
 **Project Start:** November 5, 2025
 **Last Updated:** November 24, 2025
-**Current Phase:** Phase 3.5 - Proactive Discipline
-**Phase Status:** 100% Complete (All 4 Weeks)
+**Current Phase:** Phase 4 - Fitness & Nutrition
+**Phase Status:** 100% Complete
 
 ---
 
@@ -13,11 +13,73 @@
 Phase 1 (MVP)          ██████████████████ 100% ✓
 Phase 2 (Behaviour)    ██████████████████ 100% ✓
 Phase 3 (Planner)      ██████████████████ 100% ✓
-Phase 3.5 (Discipline) ██████████████████ 100% ← COMPLETE
-Phase 4 (Fitness)      ░░░░░░░░░░░░░░░░░░  0%  (locked)
+Phase 3.5 (Discipline) ██████████████████ 100% ✓
+Phase 4 (Fitness)      ██████████████████ 100% ← COMPLETE
 Phase 5 (Expansion)    ░░░░░░░░░░░░░░░░░░  0%  (locked)
 Phase 7 (Prompt Coach) ██████████████████ 100% ✓
 ```
+
+---
+
+## 🎯 Phase 4 - Fitness & Nutrition (Complete)
+
+**Goal:** Voice-guided workouts with sets/reps/RPE logging, meal logging with macro tracking
+
+### ✅ Fitness Module (Complete)
+- [x] Database tables (exercises, workout_templates, workout_sessions, exercise_logs, personal_records)
+- [x] 15 seeded bodyweight exercises with categories
+- [x] 30-minute workout templates
+- [x] Session management (start/end/pause)
+- [x] Exercise logging with sets/reps/weight/RPE
+- [x] Weekly stats and progress tracking
+- [x] Personal records detection
+- [x] Fitness UI dashboard in Streamlit
+
+### ✅ Nutrition Module (Complete)
+- [x] Database tables (food_items, meals, meal_items, nutrition_targets)
+- [x] 25+ seeded common foods with macros
+- [x] Meal logging (breakfast/lunch/dinner/snack)
+- [x] Daily macro tracking (calories, protein, carbs, fat)
+- [x] Weekly nutrition summary
+- [x] Custom food quick-add
+- [x] Nutrition targets configuration
+- [x] Nutrition UI with progress bars
+
+### Architecture
+```
+assistant/modules/fitness/
+├── __init__.py           # Auto-init tables
+├── workout_db.py         # Database setup + seeding
+└── workout_session.py    # Session & logging logic
+
+assistant/modules/nutrition/
+├── __init__.py           # Auto-init tables
+├── nutrition_db.py       # Database setup + seeding
+└── meal_logging.py       # Meal CRUD + summaries
+
+assistant/modules/voice/
+├── fitness_ui.py         # Workout dashboard UI
+└── nutrition_ui.py       # Nutrition tracker UI
+
+assistant_api/app/routers/
+├── fitness.py            # Fitness API endpoints
+└── nutrition.py          # Nutrition API endpoints
+
+tests/e2e/
+├── test_fitness_ui.py    # Fitness Playwright tests
+└── test_nutrition_ui.py  # Nutrition Playwright tests
+```
+
+### Database Tables Added
+- `exercises` - Exercise library with categories
+- `workout_templates` - Pre-built workout routines
+- `workout_sessions` - User workout sessions
+- `exercise_logs` - Sets/reps/weight/RPE per exercise
+- `personal_records` - PR tracking
+- `food_items` - Food database with macros
+- `meals` - User meals by date/type
+- `meal_items` - Foods in each meal
+- `nutrition_targets` - Daily macro goals
 
 ---
 

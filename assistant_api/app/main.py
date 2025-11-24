@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import engine, Base
-from .routers import items, stats, discipline
+from .routers import items, stats, discipline, fitness, nutrition
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -34,6 +34,8 @@ app.add_middleware(
 app.include_router(items.router)
 app.include_router(stats.router)
 app.include_router(discipline.router)
+app.include_router(fitness.router)
+app.include_router(nutrition.router)
 
 
 @app.get("/health")
