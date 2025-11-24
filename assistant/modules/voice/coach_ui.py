@@ -218,24 +218,22 @@ def _render_questions_stage():
     num_questions = len(questions)
     st.markdown(f"### ❓ {num_questions} Question{'s' if num_questions != 1 else ''} to Clarify")
 
-    answers = {}
     for i, q in enumerate(questions):
         section_label = q.section.replace("_", " ").title()
 
-        st.markdown(
-            f"""<div class="question-card">
-            <strong>Q{i+1}. [{section_label}]</strong>
-            </div>""",
-            unsafe_allow_html=True,
-        )
-        st.markdown(f"**{q.question}**")
-        answers[q.id] = st.text_area(
-            f"Answer {i+1}",
-            key=f"coach_answer_{q.id}",
-            height=80,
-            placeholder="Your answer...",
-            label_visibility="collapsed",
-        )
+        # Use Streamlit container instead of raw HTML to avoid overlay issues
+        with st.container():
+            st.markdown(f"**Q{i+1}. [{section_label}]** {q.question}")
+
+            # Use only key= (no value=) to let Streamlit manage widget state
+            answer_key = f"coach_answer_{q.id}"
+            st.text_area(
+                f"Answer {i+1}",
+                key=answer_key,
+                height=80,
+                placeholder="Your answer...",
+                label_visibility="collapsed",
+            )
         st.markdown("")
 
     # Action buttons
@@ -254,11 +252,19 @@ def _render_questions_stage():
             st.rerun()
 
     if submit_btn:
-        # Combine original with answers
+        # Combine original with answers from session state widget keys
         combined = st.session_state.coach_original + "\n\nAdditional context:\n"
         for q in questions:
-            if answers.get(q.id):
-                combined += f"Q: {q.question}\nA: {answers[q.id]}\n\n"
+            answer_key = f"coach_answer_{q.id}"
+            answer_value = st.session_state.get(answer_key, "")
+            if answer_value:
+                combined += f"Q: {q.question}\nA: {answer_value}\n\n"
+
+        # Clear old answer keys from session state before generating new questions
+        for q in questions:
+            answer_key = f"coach_answer_{q.id}"
+            if answer_key in st.session_state:
+                del st.session_state[answer_key]
 
         with st.spinner("🔄 Processing your answers..."):
             template = extract_template(combined)

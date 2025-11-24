@@ -1,7 +1,7 @@
 """
 BIL Event Handlers
 ==================
-Morning check-in and evening reflection handlers.
+Morning check-in, evening reflection, and Phase 3.5 discipline handlers.
 """
 
 import os
@@ -24,6 +24,12 @@ from .bil_prompts import (
     MISSED_SESSION_PROMPTS,
     ENCOURAGEMENT_PROMPTS,
 )
+from .bil_rituals import (
+    check_needs_evening_planning,
+    check_needs_morning_fallback,
+    get_morning_display_data,
+)
+from .bil_streaks import get_at_risk_streaks
 
 
 def handle_morning_checkin(data):
@@ -158,3 +164,64 @@ def handle_evening_reflection(data):
             print(f"  🔔 {suggestion}")
 
     print("")
+
+
+def handle_evening_planning(data):
+    """
+    Phase 3.5: Evening planning handler (6pm trigger).
+
+    Prompts user to plan tomorrow if not already done.
+    """
+    result = check_needs_evening_planning()
+
+    print(f"\n🌙 Evening Planning Check ({data.get('time', '18:00')})")
+    print("=" * 50)
+
+    if result["needs_planning"]:
+        print(f"\n📋 {result['message']}")
+        print(f"   Plan for: {result['target_date'].strftime('%A, %B %d')}")
+        print("\n   Open the Discipline tab in AskSharon to:")
+        print("   1. Reflect on what went well today")
+        print("   2. Set your Top 3 priorities for tomorrow")
+        print("   3. Define one thing to make tomorrow great")
+
+        # Check at-risk streaks
+        at_risk = get_at_risk_streaks()
+        if at_risk:
+            print("\n   ⚠️ Streaks at risk:")
+            for s in at_risk:
+                print(f"      - {s['activity']}: {s['current_streak']} days")
+    else:
+        print(f"\n{result['message']}")
+
+    print("=" * 50 + "\n")
+
+
+def handle_morning_fallback(data):
+    """
+    Phase 3.5: Morning fallback handler (8am trigger).
+
+    Shows today's plan or prompts for quick planning if evening was missed.
+    """
+    result = check_needs_morning_fallback()
+
+    print(f"\n☀️ Morning Plan Check ({data.get('time', '08:00')})")
+    print("=" * 50)
+
+    if result["needs_fallback"]:
+        print(f"\n⚡ {result['message']}")
+        print("   No evening plan was found for today.")
+        print("\n   Quick actions:")
+        print("   1. Open the Discipline tab for quick planning")
+        print("   2. Set just your Top 3 priorities")
+        print("   3. Start your day with clarity!")
+    else:
+        print(f"\n{result['message']}")
+        morning_data = get_morning_display_data()
+        if morning_data["has_plan"]:
+            if morning_data["is_fallback"]:
+                print("   (Created via morning fallback)")
+            print(f"\n   🎯 One thing to make today great:")
+            print(f"      {morning_data['one_thing_great']}")
+
+    print("=" * 50 + "\n")

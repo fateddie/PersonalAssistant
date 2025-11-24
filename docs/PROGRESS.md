@@ -1,9 +1,9 @@
 # AskSharon.ai - Progress Tracking
 
 **Project Start:** November 5, 2025
-**Last Updated:** November 23, 2025
-**Current Phase:** Phase 7 - Prompt Coach
-**Phase Status:** 100% Complete (Week 1 & 2)
+**Last Updated:** November 24, 2025
+**Current Phase:** Phase 3.5 - Proactive Discipline
+**Phase Status:** 100% Complete (All 4 Weeks)
 
 ---
 
@@ -13,10 +13,91 @@
 Phase 1 (MVP)          ██████████████████ 100% ✓
 Phase 2 (Behaviour)    ██████████████████ 100% ✓
 Phase 3 (Planner)      ██████████████████ 100% ✓
+Phase 3.5 (Discipline) ██████████████████ 100% ← COMPLETE
 Phase 4 (Fitness)      ░░░░░░░░░░░░░░░░░░  0%  (locked)
 Phase 5 (Expansion)    ░░░░░░░░░░░░░░░░░░  0%  (locked)
-Phase 7 (Prompt Coach) ██████████████████ 100% ← COMPLETE
+Phase 7 (Prompt Coach) ██████████████████ 100% ✓
 ```
+
+---
+
+## 🎯 Phase 3.5 - Proactive Discipline System (Complete)
+
+**Goal:** Build a comprehensive discipline and productivity system
+
+### ✅ Week 1 - Foundation (Complete)
+- [x] Evening planning workflow (6pm trigger)
+- [x] Morning fallback (8am trigger)
+- [x] Daily reflections database table
+- [x] Streak tracking system
+- [x] Discipline UI tab in Streamlit
+- [x] Today's Plan / Plan Tomorrow views
+
+### ✅ Week 2 - Eisenhower Matrix (Complete)
+- [x] Quadrant classification (I, II, III, IV)
+- [x] `bil_eisenhower.py` - classification logic
+- [x] Eisenhower Matrix 2x2 grid UI
+- [x] Auto-classify button
+- [x] Time blocking API endpoints
+- [x] Discipline API router (`/discipline/*`)
+
+### ✅ Week 3 - Behavioral Psychology (Complete)
+- [x] Habit stacking ("After X, I will Y")
+- [x] If-Then planning (implementation intentions)
+- [x] GTD brain dump (quick capture)
+- [x] Weekly review ritual
+- [x] Habit tracking UI
+- [x] Brain dump processing UI
+
+### ✅ Week 4 - Performance Optimization (Complete)
+- [x] Pomodoro timer (25-min focus sessions)
+- [x] CBT thought logs (cognitive restructuring)
+- [x] Cognitive distortion detection
+- [x] Energy tracking (AM/PM levels)
+- [x] Energy pattern analysis
+- [x] Focus & Mindset UI
+
+### Architecture
+```
+assistant/modules/behavioural_intelligence/
+├── bil_db_init.py        # Auto-create tables on import
+├── bil_daily_reflection.py
+├── bil_rituals.py
+├── bil_streaks.py
+├── bil_eisenhower.py
+├── bil_habits.py         # Habit stacking + If-Then
+├── bil_weekly_review.py
+├── bil_pomodoro.py
+├── bil_cbt.py
+└── bil_energy.py
+
+assistant/modules/voice/
+├── discipline_ui.py      # Main discipline tab
+├── eisenhower_ui.py      # Matrix view
+├── habits_ui.py          # Habits, If-Then, Brain Dump
+├── weekly_review_ui.py   # Weekly review
+└── focus_ui.py           # Pomodoro, CBT, Energy
+
+assistant_api/app/routers/
+└── discipline.py         # API endpoints
+
+tests/e2e/
+├── test_discipline_ui.py
+├── test_eisenhower_ui.py
+├── test_habits_ui.py
+└── test_focus_ui.py
+```
+
+### Database Tables Added
+- `daily_reflections` - Evening plans, morning fallback
+- `time_blocks` - Calendar time blocking
+- `habit_chains` - Habit stacking
+- `habit_completions` - Daily habit tracking
+- `if_then_plans` - Implementation intentions
+- `thought_logs` - Brain dump + CBT logs
+- `pomodoro_sessions` - Focus sessions
+- `streaks` - Activity streaks
+- `weekly_reviews` - Weekly review records
 
 ---
 

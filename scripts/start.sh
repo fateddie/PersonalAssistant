@@ -44,6 +44,11 @@ mkdir -p logs
 # Activate virtual environment
 source .venv/bin/activate
 
+# Initialize database tables (Phase 3.5 discipline system)
+echo -e "\n${YELLOW}[0/3] Initializing database tables...${NC}"
+python -c "from assistant.modules.behavioural_intelligence import bil_db_init" 2>/dev/null || true
+echo -e "${GREEN}✓ Database tables ready${NC}"
+
 # Helper function to wait for port
 wait_for_port() {
     local port=$1

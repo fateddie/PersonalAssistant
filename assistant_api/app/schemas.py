@@ -55,6 +55,7 @@ class AssistantItemBase(BaseModel):
     goal_id: Optional[str] = None
     category: Optional[str] = None  # content_creation|trading|education|tech|service|shopping|other
     subcategory: Optional[str] = None  # newsletter|promotional|market_summary|course|mooc|etc
+    quadrant: Optional[str] = Field(None, pattern="^(I|II|III|IV)$")  # Eisenhower Matrix
 
 
 class AssistantItemCreate(AssistantItemBase):
@@ -82,6 +83,7 @@ class AssistantItemUpdate(BaseModel):
     goal_id: Optional[str] = None
     category: Optional[str] = None
     subcategory: Optional[str] = None
+    quadrant: Optional[str] = Field(None, pattern="^(I|II|III|IV)$")  # Eisenhower Matrix
 
     @field_validator("type")
     @classmethod

@@ -88,6 +88,11 @@ class AssistantItem(Base):
         String(50), nullable=True
     )  # newsletter|promotional|market_summary|course|mooc|etc
 
+    # Eisenhower Matrix (Phase 3.5)
+    quadrant = Column(
+        String(4), nullable=True
+    )  # I (Urgent+Important), II (Important), III (Urgent), IV (Neither)
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())

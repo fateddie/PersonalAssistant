@@ -24,6 +24,16 @@ def job_evening_reflection():
     publish("evening_reflection", {"time": "21:00"})
 
 
+def job_evening_planning():
+    """6pm trigger for evening planning (Phase 3.5)"""
+    publish("evening_planning", {"time": "18:00"})
+
+
+def job_morning_fallback():
+    """8am fallback if evening planning was missed (Phase 3.5)"""
+    publish("morning_fallback", {"time": "08:00"})
+
+
 def job_email_sync():
     """Periodic Gmail sync - fetches new emails and detects events"""
     global _last_email_sync
@@ -47,14 +57,18 @@ def get_last_sync_time():
 
 
 def start_scheduler():
-    # Daily events
+    # Daily events - original check-ins
     schedule.every().day.at("07:30").do(job_morning_checkin)
     schedule.every().day.at("21:00").do(job_evening_reflection)
+
+    # Phase 3.5: Evening planning (primary) + morning fallback
+    schedule.every().day.at("18:00").do(job_evening_planning)
+    schedule.every().day.at("08:00").do(job_morning_fallback)
 
     # Email sync every 30 minutes
     schedule.every(30).minutes.do(job_email_sync)
 
-    print("🕓 Scheduler started (email sync every 30 min)")
+    print("🕓 Scheduler started (email sync every 30 min, evening planning 6pm, morning fallback 8am)")
 
     def loop():
         while True:

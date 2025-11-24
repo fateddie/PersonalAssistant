@@ -27,6 +27,7 @@ from ui_components import check_api_health, render_item_card
 from ui_forms import render_add_form
 from conversation import process_chat_message
 from coach_ui import render_coach_tab
+from discipline_ui import render_discipline_tab
 from actions import (
     execute_pending_action,
     get_daily_summary,
@@ -116,7 +117,7 @@ def main():
     st.divider()
 
     # ===== QUICK ACTIONS =====
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
         if st.button("📅 Today", use_container_width=True):
             st.session_state.current_view = "today"
@@ -133,6 +134,9 @@ def main():
     with col5:
         if st.button("🎓 Coach", use_container_width=True):
             st.session_state.current_view = "coach"
+    with col6:
+        if st.button("Discipline", use_container_width=True):
+            st.session_state.current_view = "discipline"
 
     st.divider()
 
@@ -360,6 +364,9 @@ def _render_content_area():
 
         elif current_view == "coach":
             render_coach_tab()
+
+        elif current_view == "discipline":
+            render_discipline_tab()
 
     except RerunException:
         raise
